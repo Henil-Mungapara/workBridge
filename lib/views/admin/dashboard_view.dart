@@ -1089,6 +1089,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.dataset_rounded, color: AppColors.card),
+            tooltip: 'Data Management Hub',
+            onPressed: () {
+              Navigator.of(context).pushNamed(AppRoutes.adminDataManagement);
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.notifications_none_rounded,
                 color: AppColors.card),
             onPressed: () {
@@ -1383,6 +1390,37 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       icon: Icons.security_rounded,
                       color: Colors.teal.shade700,
                       onTap: _showFixRoleDialog,
+                    ),
+                  ),
+                ],
+              ),
+              UiHelper.verticalSpace(context, 0.015),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildModuleTile(
+                      context,
+                      title: 'Data\nManagement',
+                      icon: Icons.dataset_rounded,
+                      color: const Color(0xFF002B49),
+                      onTap: () {
+                        Navigator.of(context).pushNamed(AppRoutes.adminDataManagement);
+                      },
+                    ),
+                  ),
+                  UiHelper.horizontalSpace(context, 0.03),
+                  Expanded(
+                    child: _buildModuleTile(
+                      context,
+                      title: 'Quick Add\nCustomer',
+                      icon: Icons.person_add_rounded,
+                      color: AppColors.accent,
+                      onTap: () {
+                        UiHelper.showAddCustomerDialog(
+                          context,
+                          onCustomerAdded: _fetchLiveDirectoryData,
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -2016,6 +2054,33 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () => UiHelper.showAddCustomerDialog(
+                    context,
+                    onCustomerAdded: _fetchLiveDirectoryData,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.25),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: AppColors.card,
+                      size: 20,
+                    ),
+                  ),
+                ),
               ],
             ),
             if (_errorMessage != null) ...[
@@ -2332,6 +2397,33 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       fontWeight: FontWeight.w700,
                       color: AppColors.primary,
                       fontSize: context.respFont(11),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () => UiHelper.showAddCustomerDialog(
+                    context,
+                    onCustomerAdded: _fetchLiveDirectoryData,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.25),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: AppColors.card,
+                      size: 20,
                     ),
                   ),
                 ),

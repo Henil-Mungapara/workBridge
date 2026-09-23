@@ -313,8 +313,8 @@ class FirebaseService {
   ///   'uid': uid,
   ///   'email': email,
   ///   'role': 'customer',
-  ///   'createdAt': <iso8601>,
-  ///   'updatedAt': <iso8601>,
+  ///   'createdAt': ISO-8601 string,
+  ///   'updatedAt': ISO-8601 string,
   /// }
   Future<Map<String, dynamic>> adminCreateCustomer({
     required String email,
@@ -413,4 +413,5 @@ class FirebaseService {
       default:
         return e.message ?? 'Authentication failed. Please try again.';
     }
- 
+  }
+}

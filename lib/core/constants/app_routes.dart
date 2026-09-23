@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../views/admin/admin_data_management_screen.dart';
 import '../../views/admin/dashboard_view.dart';
 import '../../views/admin/profile_view.dart';
 import '../../views/auth/forgot_password_view.dart';
@@ -44,6 +45,7 @@ abstract final class AppRoutes {
   // ── Admin Views ──────────────────────────────────────────────────────
   static const String adminDashboard = '/admin/dashboard';
   static const String adminProfile = '/admin/profile';
+  static const String adminDataManagement = '/admin/data-management';
 
   // ── Services & Bookings ──────────────────────────────────────────────
   static const String serviceCategories = '/services';
@@ -139,6 +141,12 @@ abstract final class AppRoutes {
       case adminProfile:
         return MaterialPageRoute(
           builder: (_) => const AdminProfileView(),
+          settings: settings,
+        );
+
+      case adminDataManagement:
+        return MaterialPageRoute(
+          builder: (_) => const AdminDataManagementScreen(),
           settings: settings,
         );
 

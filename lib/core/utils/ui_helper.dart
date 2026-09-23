@@ -4,6 +4,8 @@ import 'package:lottie/lottie.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimensions.dart';
 import '../theme/app_text_styles.dart';
+import '../services/firebase_service.dart';
+import '../../models/user_model.dart';
 import 'media_query_helper.dart';
 
 /// Centralized UI helper containing all reusable widgets as **static functions**.
@@ -1201,6 +1203,518 @@ abstract final class UiHelper {
           elevation: 0,
         ),
       ),
+    );
+  }
+
+  // ── Dropdowns ───────────────────────────────────────────────────────────
+
+  /// Centralized custom dropdown form field.
+  ///
+  /// Styled to match WorkBridge root theme and colors (clean border, rounded corners,
+  /// card background, and focused accent border).
+  static Widget customDropdown<T>({
+    required BuildContext context,
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?>? onChanged,
+    String? labelText,
+    String? hintText,
+    IconData? prefixIcon,
+    String? Function(T?)? validator,
+    double widthFraction = 0.9,
+    bool isExpanded = true,
+  }) {
+    return SizedBox(
+      width: MediaQueryHelper.width(context, widthFraction),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (labelText != null) ...[
+            Text(
+              labelText,
+              style: AppTextStyles.labelLarge.copyWith(
+                fontSize: MediaQueryHelper.responsiveFont(context, 13),
+                fontWeight: FontWeight.w600,
+                color: AppColors.mainText,
+              ),
+            ),
+            SizedBox(height: MediaQueryHelper.height(context, 0.008)),
+          ],
+          DropdownButtonFormField<T>(
+            initialValue: value,
+            items: items,
+            onChanged: onChanged,
+            validator: validator,
+            isExpanded: isExpanded,
+            dropdownColor: AppColors.card,
+            icon: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: AppColors.secondaryText,
+              size: MediaQueryHelper.responsiveFont(context, 22),
+            ),
+            style: AppTextStyles.bodyMedium.copyWith(
+              fontSize: MediaQueryHelper.responsiveFont(context, 14.5),
+              color: AppColors.mainText,
+            ),
+            decoration: InputDecoration(
+              hintText: hintText,
+              hintStyle: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.secondaryText.withValues(alpha: 0.8),
+                fontSize: MediaQueryHelper.responsiveFont(context, 14),
+              ),
+              prefixIcon: prefixIcon != null
+                  ? Icon(
+                      prefixIcon,
+                      color: AppColors.secondaryText,
+                      size: MediaQueryHelper.responsiveFont(context, 20),
+                    )
+                  : null,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: MediaQueryHelper.width(context, 0.04),
+                vertical: MediaQueryHelper.height(context, 0.016),
+              ),
+              filled: true,
+              fillColor: AppColors.card,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.borderRadius),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.borderRadius),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.borderRadius),
+                borderSide: const BorderSide(color: AppColors.accent, width: 1.8),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.borderRadius),
+                borderSide: const BorderSide(color: AppColors.error),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.borderRadius),
+                borderSide: const BorderSide(color: AppColors.error, width: 1.8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Custom Alert Dialog ──────────────────────────────────────────────────
+
+  /// Centralized custom alert dialog styled with WorkBridge design system.
+  static Future<T?> showCustomAlertDialog<T>({
+    required BuildContext context,
+    required String title,
+    String? subtitle,
+    IconData? icon,
+    Color iconColor = AppColors.primary,
+    required Widget content,
+    List<Widget>? actions,
+    bool barrierDismissible = true,
+  }) {
+    return showDialog<T>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
+          side: const BorderSide(color: AppColors.border, width: 1.2),
+        ),
+        elevation: 8,
+        shadowColor: AppColors.primary.withValues(alpha: 0.16),
+        titlePadding: EdgeInsets.fromLTRB(
+          MediaQueryHelper.width(ctx, 0.06),
+          MediaQueryHelper.height(ctx, 0.025),
+          MediaQueryHelper.width(ctx, 0.06),
+          0,
+        ),
+        contentPadding: EdgeInsets.fromLTRB(
+          MediaQueryHelper.width(ctx, 0.06),
+          MediaQueryHelper.height(ctx, 0.015),
+          MediaQueryHelper.width(ctx, 0.06),
+          MediaQueryHelper.height(ctx, 0.015),
+        ),
+        actionsPadding: EdgeInsets.fromLTRB(
+          MediaQueryHelper.width(ctx, 0.06),
+          0,
+          MediaQueryHelper.width(ctx, 0.06),
+          MediaQueryHelper.height(ctx, 0.022),
+        ),
+        title: Row(
+          children: [
+            if (icon != null) ...[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: MediaQueryHelper.responsiveFont(ctx, 22),
+                ),
+              ),
+              SizedBox(width: MediaQueryHelper.width(ctx, 0.03)),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: AppTextStyles.titleMedium.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary,
+                      fontSize: MediaQueryHelper.responsiveFont(ctx, 17),
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.secondaryText,
+                        fontSize: MediaQueryHelper.responsiveFont(ctx, 11.5),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: content,
+        actions: actions,
+      ),
+    );
+  }
+
+  // ── Common Add Customer Dialog ──────────────────────────────────────────
+
+  /// Displays the standardized, responsive "Add Customer" dialog.
+  ///
+  /// Reusable across both [AdminDataManagementScreen] and the Admin Dashboard (+ button).
+  /// Features:
+  /// - Email input with validator
+  /// - Password input with visibility toggle and min-length validator
+  /// - Role dropdown using [customDropdown] with 'Customer' selection
+  /// - Submit button with loading spinner
+  /// - Creates account using [FirebaseService.adminCreateCustomer]
+  /// - Displays success/error SnackBar feedback
+  /// - Calls [onCustomerAdded] on successful creation to trigger table/list refresh
+  static Future<bool?> showAddCustomerDialog(
+    BuildContext context, {
+    VoidCallback? onCustomerAdded,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => _AddCustomerDialogWidget(
+        onCustomerAdded: onCustomerAdded,
+      ),
+    );
+  }
+}
+
+/// Standalone reusable Add Customer Dialog Widget.
+class _AddCustomerDialogWidget extends StatefulWidget {
+  final VoidCallback? onCustomerAdded;
+
+  const _AddCustomerDialogWidget({this.onCustomerAdded});
+
+  @override
+  State<_AddCustomerDialogWidget> createState() => _AddCustomerDialogWidgetState();
+}
+
+class _AddCustomerDialogWidgetState extends State<_AddCustomerDialogWidget> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _emailController;
+  late final TextEditingController _passwordController;
+  bool _obscurePassword = true;
+  bool _isLoading = false;
+  String _selectedRole = AppRoles.customer;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSubmit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await FirebaseService().adminCreateCustomer(
+        email: _emailController.text,
+        password: _passwordController.text,
+        role: _selectedRole,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+
+      final String createdUid = result['uid'] as String? ?? '';
+      UiHelper.showSnackBar(
+        context,
+        'Customer "${_emailController.text.trim()}" created successfully! ($createdUid)',
+        isError: false,
+      );
+      widget.onCustomerAdded?.call();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        UiHelper.showSnackBar(
+          context,
+          e.toString().replaceFirst('Exception: ', ''),
+          isError: true,
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.card,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
+        side: const BorderSide(color: AppColors.border, width: 1.2),
+      ),
+      elevation: 10,
+      shadowColor: AppColors.primary.withValues(alpha: 0.2),
+      titlePadding: EdgeInsets.fromLTRB(
+        MediaQueryHelper.width(context, 0.06),
+        MediaQueryHelper.height(context, 0.025),
+        MediaQueryHelper.width(context, 0.06),
+        0,
+      ),
+      contentPadding: EdgeInsets.fromLTRB(
+        MediaQueryHelper.width(context, 0.06),
+        MediaQueryHelper.height(context, 0.015),
+        MediaQueryHelper.width(context, 0.06),
+        0,
+      ),
+      actionsPadding: EdgeInsets.fromLTRB(
+        MediaQueryHelper.width(context, 0.06),
+        MediaQueryHelper.height(context, 0.015),
+        MediaQueryHelper.width(context, 0.06),
+        MediaQueryHelper.height(context, 0.024),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.person_add_rounded,
+              color: AppColors.primary,
+              size: MediaQueryHelper.responsiveFont(context, 22),
+            ),
+          ),
+          SizedBox(width: MediaQueryHelper.width(context, 0.03)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Add Customer',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    fontSize: MediaQueryHelper.responsiveFont(context, 17.5),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Create new client account',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.secondaryText,
+                    fontSize: MediaQueryHelper.responsiveFont(context, 11.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              UiHelper.customTextField(
+                context: context,
+                controller: _emailController,
+                labelText: 'Email Address',
+                hintText: 'customer@example.com',
+                prefixIcon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
+                enabled: !_isLoading,
+                widthFraction: 1.0,
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter an email address';
+                  }
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                    return 'Please enter a valid email format';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: MediaQueryHelper.height(context, 0.016)),
+              UiHelper.customTextField(
+                context: context,
+                controller: _passwordController,
+                labelText: 'Password',
+                hintText: 'Enter secure password',
+                prefixIcon: Icons.lock_outline_rounded,
+                obscureText: _obscurePassword,
+                enabled: !_isLoading,
+                widthFraction: 1.0,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    size: 20,
+                    color: AppColors.secondaryText,
+                  ),
+                  onPressed: () {
+                    setState(() => _obscurePassword = !_obscurePassword);
+                  },
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter a password';
+                  }
+                  if (val.trim().length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: MediaQueryHelper.height(context, 0.016)),
+              UiHelper.customDropdown<String>(
+                context: context,
+                labelText: 'Role',
+                value: _selectedRole,
+                prefixIcon: Icons.shield_outlined,
+                widthFraction: 1.0,
+                items: const [
+                  DropdownMenuItem(
+                    value: AppRoles.customer,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.person_rounded, size: 18, color: AppColors.primary),
+                        SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Customer',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                onChanged: _isLoading
+                    ? null
+                    : (val) {
+                        if (val != null) {
+                          setState(() => _selectedRole = val);
+                        }
+                      },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.secondaryText,
+                  side: const BorderSide(color: AppColors.border, width: 1.2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppDimensions.borderRadius),
+                  ),
+                  padding: EdgeInsets.symmetric(
+                    vertical: MediaQueryHelper.height(context, 0.013),
+                  ),
+                ),
+                child: Text(
+                  'Cancel',
+                  style: AppTextStyles.button.copyWith(
+                    color: AppColors.secondaryText,
+                    fontWeight: FontWeight.w600,
+                    fontSize: MediaQueryHelper.responsiveFont(context, 13.5),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: MediaQueryHelper.width(context, 0.03)),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _handleSubmit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.card,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppDimensions.borderRadius),
+                  ),
+                  padding: EdgeInsets.symmetric(
+                    vertical: MediaQueryHelper.height(context, 0.013),
+                  ),
+                ),
+                child: _isLoading
+                    ? SizedBox(
+                        height: MediaQueryHelper.height(context, 0.022),
+                        width: MediaQueryHelper.height(context, 0.022),
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.card),
+                        ),
+                      )
+                    : Text(
+                        'Add Customer',
+                        style: AppTextStyles.button.copyWith(
+                          color: AppColors.card,
+                          fontWeight: FontWeight.w700,
+                          fontSize: MediaQueryHelper.responsiveFont(context, 13.5),
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
