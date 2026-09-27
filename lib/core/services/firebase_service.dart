@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
+import '../../models/service_category_model.dart';
 import '../../models/user_model.dart';
 import '../exceptions/app_exception.dart';
+import '../theme/app_colors.dart';
 
 /// Centralized service handling Firebase Authentication and Cloud Firestore operations.
 class FirebaseService {
@@ -224,7 +226,11 @@ class FirebaseService {
     if (firestore == null) return null;
 
     try {
-      final doc = await firestore.collection('users').doc(uid).get();
+      final doc = await firestore
+          .collection('users')
+          .doc(uid)
+          .get()
+          .timeout(const Duration(seconds: 4));
       if (doc.exists && doc.data() != null) {
         final data = Map<String, dynamic>.from(doc.data()!);
         final rawRole = data['role'] as String?;
@@ -386,6 +392,282 @@ class FirebaseService {
         } catch (_) {}
       }
       debugPrint('Admin create customer error: $e');
+      rethrow;
+    }
+  }
+
+  /// Creates a new service provider account directly from the Admin console.
+  ///
+  /// Uses a secondary temporary [FirebaseApp] instance to create the authentication
+  /// user in Firebase Authentication without disturbing or terminating the active
+  /// Administrator's logged-in session.
+  ///
+  /// Writes the complete service provider document to Cloud Firestore:
+  /// collection: 'users'
+  /// document: '{uid}'
+  /// data: {
+  ///   'uid': uid,
+  ///   'name': name,
+  ///   'email': email,
+  ///   'phone': phone,
+  ///   'password': password,
+  ///   'role': 'service_provider',
+  ///   'categories': categories,
+  ///   'trade': trade,
+  ///   'isVerified': isVerified,
+  ///   'rating': 5.0,
+  ///   'completedJobs': 0,
+  ///   'createdAt': ISO-8601 string,
+  ///   'updatedAt': ISO-8601 string,
+  /// }
+  Future<Map<String, dynamic>> adminCreateServiceProvider({
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
+    required String category,
+    List<String>? categories,
+    bool isVerified = true,
+  }) async {
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanName = name.trim();
+    final cleanPhone = phone.trim();
+    final now = DateTime.now().toIso8601String();
+    final providerCategories = categories != null && categories.isNotEmpty
+        ? categories
+        : (category.trim().isNotEmpty ? [category.trim()] : <String>[]);
+    final trade = category.trim().isNotEmpty
+        ? category.trim()
+        : (providerCategories.isNotEmpty ? providerCategories.first : 'General Services');
+
+    // Check if Firebase is available (offline/testing fallback)
+    if (Firebase.apps.isEmpty) {
+      final mockUid = 'wb_prov_${DateTime.now().millisecondsSinceEpoch}';
+      return {
+        'uid': mockUid,
+        'name': cleanName,
+        'email': cleanEmail,
+        'phone': cleanPhone,
+        'password': password,
+        'role': AppRoles.serviceProvider,
+        'categories': providerCategories,
+        'trade': trade,
+        'isVerified': isVerified,
+        'rating': 5.0,
+        'completedJobs': 0,
+        'createdAt': now,
+        'updatedAt': now,
+      };
+    }
+
+    FirebaseApp? tempApp;
+    try {
+      final tempAppName = 'AdminProviderCreator_${DateTime.now().millisecondsSinceEpoch}';
+      tempApp = await Firebase.initializeApp(
+        name: tempAppName,
+        options: Firebase.app().options,
+      );
+
+      final tempAuth = FirebaseAuth.instanceFor(app: tempApp);
+      final userCredential = await tempAuth.createUserWithEmailAndPassword(
+        email: cleanEmail,
+        password: password,
+      );
+
+      final uid = userCredential.user?.uid ?? 'wb_prov_${DateTime.now().millisecondsSinceEpoch}';
+      await userCredential.user?.updateDisplayName(cleanName);
+
+      // Dispose the temporary app to avoid memory leaks
+      await tempApp.delete();
+      tempApp = null;
+
+      final userData = <String, dynamic>{
+        'uid': uid,
+        'name': cleanName,
+        'email': cleanEmail,
+        'phone': cleanPhone,
+        'password': password,
+        'role': AppRoles.serviceProvider,
+        'categories': providerCategories,
+        'trade': trade,
+        'isVerified': isVerified,
+        'rating': 5.0,
+        'completedJobs': 0,
+        'createdAt': now,
+        'updatedAt': now,
+      };
+
+      // Store in existing Firestore 'users' collection keyed by uid
+      final firestore = _firestore;
+      if (firestore != null) {
+        await firestore.collection('users').doc(uid).set(userData);
+      }
+
+      return userData;
+    } on FirebaseAuthException catch (e) {
+      if (tempApp != null) {
+        try {
+          await tempApp.delete();
+        } catch (_) {}
+      }
+      throw _handleAuthException(e);
+    } catch (e) {
+      if (tempApp != null) {
+        try {
+          await tempApp.delete();
+        } catch (_) {}
+      }
+      debugPrint('Admin create service provider error: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetches categories dynamically from Firestore 'categories' collection.
+  /// If the collection is empty and [autoSeedIfEmpty] is true, seeds the 8
+  /// canonical categories into Firestore so document IDs and full data exist in the DB.
+  Future<List<ServiceCategory>> fetchCategories({bool autoSeedIfEmpty = true}) async {
+    final firestore = _firestore;
+    if (firestore == null || Firebase.apps.isEmpty) {
+      return ServiceCategory.all8Categories;
+    }
+
+    try {
+      final snapshot = await firestore
+          .collection('categories')
+          .get()
+          .timeout(const Duration(seconds: 4));
+
+      if (snapshot.docs.isEmpty) {
+        if (autoSeedIfEmpty) {
+          await seedDefaultCategories();
+        }
+        return ServiceCategory.all8Categories;
+      }
+
+      final list = snapshot.docs.map((doc) {
+        return ServiceCategory.fromMap(doc.data(), doc.id);
+      }).toList();
+
+      list.sort((a, b) => a.name.compareTo(b.name));
+      return list;
+    } catch (e) {
+      debugPrint('Error fetching categories from Firestore: $e');
+      return ServiceCategory.all8Categories;
+    }
+  }
+
+  /// Real-time stream of categories from Firestore 'categories' collection.
+  Stream<List<ServiceCategory>> streamCategories() {
+    final firestore = _firestore;
+    if (firestore == null || Firebase.apps.isEmpty) {
+      return Stream.value(ServiceCategory.all8Categories);
+    }
+
+    try {
+      return firestore.collection('categories').snapshots().map((snapshot) {
+        if (snapshot.docs.isEmpty) {
+          return ServiceCategory.all8Categories;
+        }
+        final list = snapshot.docs.map((doc) {
+          return ServiceCategory.fromMap(doc.data(), doc.id);
+        }).toList();
+        list.sort((a, b) => a.name.compareTo(b.name));
+        return list;
+      });
+    } catch (e) {
+      debugPrint('Error streaming categories: $e');
+      return Stream.value(ServiceCategory.all8Categories);
+    }
+  }
+
+  /// Seeds the 8 default canonical categories into Firestore 'categories' collection.
+  Future<void> seedDefaultCategories() async {
+    final firestore = _firestore;
+    if (firestore == null || Firebase.apps.isEmpty) return;
+
+    try {
+      final batch = firestore.batch();
+      final now = DateTime.now().toIso8601String();
+
+      for (final cat in ServiceCategory.all8Categories) {
+        final docRef = firestore.collection('categories').doc(cat.id);
+        final map = cat.toMap();
+        map['createdAt'] = now;
+        map['updatedAt'] = now;
+        batch.set(docRef, map, SetOptions(merge: true));
+      }
+
+      await batch.commit();
+    } catch (e) {
+      debugPrint('Error seeding default categories: $e');
+    }
+  }
+
+  /// Creates a new category document dynamically in Firestore 'categories' collection.
+  Future<ServiceCategory> adminCreateCategory({
+    required String name,
+    required String description,
+    String? categoryId,
+    IconData? icon,
+    Color? accentColor,
+  }) async {
+    final cleanName = name.trim();
+    final cleanDesc = description.trim();
+    final safeId = (categoryId != null && categoryId.trim().isNotEmpty)
+        ? categoryId.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')
+        : cleanName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    final docId = safeId.isNotEmpty ? safeId : 'cat_${DateTime.now().millisecondsSinceEpoch}';
+
+    final category = ServiceCategory(
+      id: docId,
+      name: cleanName,
+      description: cleanDesc,
+      icon: icon ?? Icons.category_rounded,
+      accentColor: accentColor ?? AppColors.accent,
+      isActive: true,
+      providerCount: 0,
+    );
+
+    final firestore = _firestore;
+    final now = DateTime.now().toIso8601String();
+    final data = category.toMap();
+    data['createdAt'] = now;
+    data['updatedAt'] = now;
+
+    if (firestore != null && Firebase.apps.isNotEmpty) {
+      try {
+        await firestore.collection('categories').doc(docId).set(data);
+      } catch (e) {
+        debugPrint('Error creating category in Firestore: $e');
+        rethrow;
+      }
+    }
+
+    return category;
+  }
+
+  /// Updates an existing category in Firestore 'categories' collection.
+  Future<void> updateCategory(ServiceCategory category) async {
+    final firestore = _firestore;
+    if (firestore == null || Firebase.apps.isEmpty) return;
+    try {
+      final data = category.toMap();
+      data['updatedAt'] = DateTime.now().toIso8601String();
+      await firestore.collection('categories').doc(category.id).update(data);
+    } catch (e) {
+      debugPrint('Error updating category in Firestore: $e');
+      rethrow;
+    }
+  }
+
+  /// Deletes a category from Firestore 'categories' collection.
+  Future<void> deleteCategory(String categoryId) async {
+    final firestore = _firestore;
+    if (firestore == null || Firebase.apps.isEmpty) return;
+    try {
+      await firestore.collection('categories').doc(categoryId).delete();
+    } catch (e) {
+      debugPrint('Error deleting category in Firestore: $e');
       rethrow;
     }
   }

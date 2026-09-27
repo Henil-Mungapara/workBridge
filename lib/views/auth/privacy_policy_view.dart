@@ -49,15 +49,15 @@ class _PrivacyPolicyViewState extends State<PrivacyPolicyView> {
         title: Text(
           'Privacy Policy & Terms',
           style: TextStyle(
-            color: AppColors.primary,
+            color: AppColors.card,
             fontSize: w * 0.048,
             fontWeight: FontWeight.bold,
           ),
         ),
         centerTitle: true,
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.primary),
+        backgroundColor: AppColors.primary,
+        elevation: 1,
+        iconTheme: const IconThemeData(color: AppColors.card),
       ),
       body: SafeArea(
         child: Padding(

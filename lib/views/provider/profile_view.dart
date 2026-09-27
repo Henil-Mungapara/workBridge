@@ -118,32 +118,19 @@ class _ProviderProfileViewState extends State<ProviderProfileView> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: UiHelper.customAppBar(
+      appBar: UiHelper.profileAppBar(
         context: context,
         title: 'Provider Profile',
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: AppColors.primary),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isEditing ? Icons.close_rounded : Icons.edit_outlined,
-              color: AppColors.primary,
-            ),
-            onPressed: () {
-              setState(() {
-                _isEditing = !_isEditing;
-                if (!_isEditing) {
-                  _nameController.text = user.userName;
-                  _phoneController.text = user.phone;
-                }
-              });
-            },
-          ),
-          UiHelper.horizontalSpace(context, 0.02),
-        ],
+        isEditing: _isEditing,
+        onToggleEdit: () {
+          setState(() {
+            _isEditing = !_isEditing;
+            if (!_isEditing) {
+              _nameController.text = user.userName;
+              _phoneController.text = user.phone;
+            }
+          });
+        },
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -288,7 +275,7 @@ class _ProviderProfileViewState extends State<ProviderProfileView> {
                         onPressed: _onSaveProfile,
                       ),
                     ] else ...[
-                      _buildDetailRow(
+                      UiHelper.profileDetailRow(
                         context,
                         icon: Icons.badge_outlined,
                         label: 'Provider UID',
@@ -306,7 +293,7 @@ class _ProviderProfileViewState extends State<ProviderProfileView> {
                         ),
                       ),
                       const Divider(height: 20, color: AppColors.border),
-                      _buildDetailRow(
+                      UiHelper.profileDetailRow(
                         context,
                         icon: Icons.mail_outline_rounded,
                         label: 'Contact Email',
@@ -315,7 +302,7 @@ class _ProviderProfileViewState extends State<ProviderProfileView> {
                             : 'provider@workbridge.com',
                       ),
                       const Divider(height: 20, color: AppColors.border),
-                      _buildDetailRow(
+                      UiHelper.profileDetailRow(
                         context,
                         icon: Icons.phone_outlined,
                         label: 'Contact Phone',
@@ -347,21 +334,21 @@ class _ProviderProfileViewState extends State<ProviderProfileView> {
                       ),
                     ),
                     UiHelper.verticalSpace(context, 0.015),
-                    _buildDetailRow(
+                    UiHelper.profileDetailRow(
                       context,
                       icon: Icons.category_outlined,
                       label: 'Primary Specialty',
                       value: 'Electrical & Smart Appliance Installation',
                     ),
                     const Divider(height: 20, color: AppColors.border),
-                    _buildDetailRow(
+                    UiHelper.profileDetailRow(
                       context,
                       icon: AppCurrency.icon,
                       label: 'Hourly Rate',
                       value: '${AppCurrency.symbol}450.00 / hour',
                     ),
                     const Divider(height: 20, color: AppColors.border),
-                    _buildDetailRow(
+                    UiHelper.profileDetailRow(
                       context,
                       icon: Icons.task_alt_rounded,
                       label: 'Completed Gigs',
@@ -390,7 +377,7 @@ class _ProviderProfileViewState extends State<ProviderProfileView> {
                       ),
                     ),
                     UiHelper.verticalSpace(context, 0.012),
-                    _buildSettingTile(
+                    UiHelper.profileSettingTile(
                       context,
                       icon: Icons.lock_outline_rounded,
                       title: 'Change Password',
@@ -403,7 +390,7 @@ class _ProviderProfileViewState extends State<ProviderProfileView> {
                       },
                     ),
                     const Divider(height: 16, color: AppColors.border),
-                    _buildSettingTile(
+                    UiHelper.profileSettingTile(
                       context,
                       icon: Icons.privacy_tip_outlined,
                       title: 'Provider Terms & Privacy',
@@ -428,95 +415,6 @@ class _ProviderProfileViewState extends State<ProviderProfileView> {
               UiHelper.verticalSpace(context, 0.02),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String value,
-    Widget? trailing,
-  }) {
-    return Row(
-      children: [
-        Icon(icon, color: AppColors.secondaryText, size: context.respFont(19)),
-        UiHelper.horizontalSpace(context, 0.03),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.secondaryText,
-                  fontSize: context.respFont(11),
-                ),
-              ),
-              UiHelper.verticalSpace(context, 0.003),
-              Text(
-                value,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.mainText,
-                  fontSize: context.respFont(13.5),
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        if (trailing != null) trailing,
-      ],
-    );
-  }
-
-  Widget _buildSettingTile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: context.heightPct(0.006)),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColors.accent, size: context.respFont(20)),
-            UiHelper.horizontalSpace(context, 0.03),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTextStyles.titleSmall.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.mainText,
-                      fontSize: context.respFont(13.5),
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.secondaryText,
-                      fontSize: context.respFont(11),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 14,
-              color: AppColors.secondaryText,
-            ),
-          ],
         ),
       ),
     );

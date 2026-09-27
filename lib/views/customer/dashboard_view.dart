@@ -48,8 +48,8 @@ class _DashboardViewState extends State<DashboardView> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.card,
-        elevation: 0.5,
+        backgroundColor: AppColors.primary,
+        elevation: 1,
         automaticallyImplyLeading: false,
         title: Row(
           children: [
@@ -59,11 +59,11 @@ class _DashboardViewState extends State<DashboardView> {
               },
               child: CircleAvatar(
                 radius: context.widthPct(0.048),
-                backgroundColor: AppColors.primary,
+                backgroundColor: AppColors.card,
                 child: Text(
                   initial,
                   style: AppTextStyles.labelLarge.copyWith(
-                    color: AppColors.card,
+                    color: AppColors.primary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -77,7 +77,7 @@ class _DashboardViewState extends State<DashboardView> {
                   Text(
                     'Welcome back,',
                     style: AppTextStyles.caption.copyWith(
-                      color: AppColors.secondaryText,
+                      color: AppColors.card.withValues(alpha: 0.75),
                       fontSize: context.respFont(11),
                     ),
                   ),
@@ -85,7 +85,7 @@ class _DashboardViewState extends State<DashboardView> {
                     displayName,
                     style: AppTextStyles.titleMedium.copyWith(
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primary,
+                      color: AppColors.card,
                       fontSize: context.respFont(15.5),
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -97,13 +97,13 @@ class _DashboardViewState extends State<DashboardView> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: AppColors.primary),
+            icon: const Icon(Icons.notifications_outlined, color: AppColors.card),
             onPressed: () {
               UiHelper.showSnackBar(context, 'No new notifications');
             },
           ),
           IconButton(
-            icon: const Icon(Icons.person_outline_rounded, color: AppColors.primary),
+            icon: const Icon(Icons.person_outline_rounded, color: AppColors.card),
             onPressed: () {
               Navigator.of(context).pushNamed(AppRoutes.profile);
             },

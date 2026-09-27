@@ -131,18 +131,18 @@ class _SignUpViewState extends State<SignUpView> {
       resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
+        backgroundColor: AppColors.primary,
+        elevation: 1,
         title: Text(
           "Sign Up",
           style: TextStyle(
-            color: AppColors.primary,
+            color: AppColors.card,
             fontSize: screenWidth * 0.05,
             fontWeight: FontWeight.bold,
           ),
         ),
         centerTitle: true,
-        iconTheme: const IconThemeData(color: AppColors.primary),
+        iconTheme: const IconThemeData(color: AppColors.card),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

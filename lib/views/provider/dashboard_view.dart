@@ -261,8 +261,8 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.card,
-        elevation: 0.5,
+        backgroundColor: AppColors.primary,
+        elevation: 1,
         automaticallyImplyLeading: false,
         title: Row(
           children: [
@@ -272,11 +272,11 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
               },
               child: CircleAvatar(
                 radius: context.widthPct(0.048),
-                backgroundColor: AppColors.accent,
+                backgroundColor: AppColors.card,
                 child: Text(
                   initialLetter,
                   style: AppTextStyles.labelLarge.copyWith(
-                    color: AppColors.card,
+                    color: AppColors.primary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -290,7 +290,7 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
                   Text(
                     'Provider Portal',
                     style: AppTextStyles.caption.copyWith(
-                      color: AppColors.secondaryText,
+                      color: AppColors.card.withValues(alpha: 0.75),
                       fontSize: context.respFont(11),
                     ),
                   ),
@@ -298,7 +298,7 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
                     displayName,
                     style: AppTextStyles.titleMedium.copyWith(
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primary,
+                      color: AppColors.card,
                       fontSize: context.respFont(15.5),
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -316,12 +316,10 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
               horizontal: context.widthPct(0.025),
             ),
             decoration: BoxDecoration(
-              color: _isOnline
-                  ? AppColors.success.withValues(alpha: 0.12)
-                  : AppColors.secondaryText.withValues(alpha: 0.12),
+              color: AppColors.card.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(AppDimensions.radiusXl),
               border: Border.all(
-                color: _isOnline ? AppColors.success : AppColors.secondaryText,
+                color: _isOnline ? AppColors.success : AppColors.card.withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -331,14 +329,14 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
                 CircleAvatar(
                   radius: 4,
                   backgroundColor:
-                      _isOnline ? AppColors.success : AppColors.secondaryText,
+                      _isOnline ? AppColors.success : AppColors.card.withValues(alpha: 0.6),
                 ),
                 UiHelper.horizontalSpace(context, 0.015),
                 Text(
                   _isOnline ? 'Online' : 'Offline',
                   style: TextStyle(
                     color:
-                        _isOnline ? AppColors.success : AppColors.secondaryText,
+                        _isOnline ? AppColors.success : AppColors.card.withValues(alpha: 0.8),
                     fontWeight: FontWeight.w700,
                     fontSize: context.respFont(11),
                   ),
@@ -352,7 +350,7 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.person_outline_rounded, color: AppColors.primary),
+            icon: const Icon(Icons.person_outline_rounded, color: AppColors.card),
             onPressed: () {
               Navigator.of(context).pushNamed(AppRoutes.providerProfile);
             },

@@ -24,15 +24,22 @@ abstract final class AppTheme {
         outline: AppColors.border,
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.card,
-        foregroundColor: AppColors.mainText,
-        elevation: 0,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.card,
+        elevation: 1,
         scrolledUnderElevation: 0,
         centerTitle: true,
+        iconTheme: IconThemeData(color: AppColors.card),
+        actionsIconTheme: IconThemeData(color: AppColors.card),
+        titleTextStyle: TextStyle(
+          color: AppColors.card,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
         ),
       ),
       cardTheme: CardThemeData(

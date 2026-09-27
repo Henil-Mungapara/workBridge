@@ -69,20 +69,20 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
       resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
+        backgroundColor: AppColors.primary,
+        elevation: 1,
         title: Text(
           "Forgot Password",
           style: TextStyle(
-            color: AppColors.primary,
+            color: AppColors.card,
             fontSize: screenWidth * 0.05,
             fontWeight: FontWeight.bold,
           ),
         ),
         centerTitle: true,
-        iconTheme: const IconThemeData(color: AppColors.primary),
+        iconTheme: const IconThemeData(color: AppColors.card),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.primary),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.card),
           onPressed: () {
             if (Navigator.of(context).canPop()) {
               Navigator.of(context).pop();

@@ -51,6 +51,7 @@ class _WorkBridgeAppState extends State<WorkBridgeApp> {
         theme: AppTheme.light,
         initialRoute: AppRoutes.splash,
         onGenerateRoute: AppRoutes.onGenerateRoute,
+        builder: (context, child) => child ?? const SizedBox.shrink(),
       ),
     );
   }

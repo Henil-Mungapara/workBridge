@@ -52,58 +52,68 @@ class _SplashViewState extends State<SplashView>
 
   /// Checks persistent session state, restores user from Firebase, and routes the user.
   Future<void> _checkUserStatus() async {
-    // Concurrently run 3-second splash delay while restoring live Firebase session
-    final results = await Future.wait([
-      Future.delayed(const Duration(seconds: 3)),
-      context.read<UserController>().restoreUserSession(),
-      SharedPreferences.getInstance(),
-    ]);
+    try {
+      // Concurrently run 3-second splash delay while restoring live Firebase session with timeout
+      final results = await Future.wait([
+        Future.delayed(const Duration(seconds: 3)),
+        context
+            .read<UserController>()
+            .restoreUserSession()
+            .timeout(const Duration(seconds: 4), onTimeout: () => false),
+        SharedPreferences.getInstance(),
+      ]);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    final sessionRestored = results[1] as bool;
-    final prefs = results[2] as SharedPreferences;
+      final sessionRestored = results[1] as bool;
+      final prefs = results[2] as SharedPreferences;
 
-    final bool isLoggedIn = prefs.getBool(AppPreferences.keyIsLoggedIn) ??
-        (!(prefs.getBool(AppPreferences.keyIsLoggin) ?? true));
+      final bool isLoggedIn = prefs.getBool(AppPreferences.keyIsLoggedIn) ??
+          (!(prefs.getBool(AppPreferences.keyIsLoggin) ?? true));
 
-    // 1. If an active session is restored from Firebase or SharedPreferences, navigate to role's panel
-    if (sessionRestored || isLoggedIn) {
-      final user = context.read<UserController>().user;
-      final prefRole = prefs.getString(AppPreferences.keyRole);
-      final String determinedRole = (prefRole != null && prefRole.isNotEmpty)
-          ? prefRole
-          : (user.uid.isNotEmpty && user.role.isNotEmpty ? user.role : AppRoles.customer);
-      final canonicalRole = AppRoles.canonicalize(determinedRole);
+      // 1. If an active session is restored from Firebase or SharedPreferences, navigate to role's panel
+      if (sessionRestored || isLoggedIn) {
+        final user = context.read<UserController>().user;
+        final prefRole = prefs.getString(AppPreferences.keyRole);
+        final String determinedRole = (prefRole != null && prefRole.isNotEmpty)
+            ? prefRole
+            : (user.uid.isNotEmpty && user.role.isNotEmpty ? user.role : AppRoles.customer);
+        final canonicalRole = AppRoles.canonicalize(determinedRole);
 
-      // If role is invalid or unrecognized, revoke session and route to login
-      if (canonicalRole == null) {
-        await context.read<UserController>().logout();
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, AppRoutes.login);
+        // If role is invalid or unrecognized, revoke session and route to login
+        if (canonicalRole == null) {
+          await context.read<UserController>().logout();
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, AppRoutes.login);
+          }
+          return;
+        }
+
+        if (canonicalRole == AppRoles.admin) {
+          Navigator.pushReplacementNamed(context, AppRoutes.adminDashboard);
+        } else if (canonicalRole == AppRoles.serviceProvider) {
+          Navigator.pushReplacementNamed(context, AppRoutes.providerDashboard);
+        } else {
+          Navigator.pushReplacementNamed(context, AppRoutes.customerDashboard);
         }
         return;
       }
 
-      if (canonicalRole == AppRoles.admin) {
-        Navigator.pushReplacementNamed(context, AppRoutes.adminDashboard);
-      } else if (canonicalRole == AppRoles.serviceProvider) {
-        Navigator.pushReplacementNamed(context, AppRoutes.providerDashboard);
+      // 2. If not logged in, check if first install onboarding is needed
+      final bool isFirstInstall = prefs.getBool(AppPreferences.keyIsFirstInstall) ??
+          prefs.getBool(AppPreferences.keyIsFirstLoggin) ??
+          true;
+
+      if (isFirstInstall) {
+        Navigator.pushReplacementNamed(context, AppRoutes.getStarted);
       } else {
-        Navigator.pushReplacementNamed(context, AppRoutes.customerDashboard);
+        Navigator.pushReplacementNamed(context, AppRoutes.login);
       }
-      return;
-    }
-
-    // 2. If not logged in, check if first install onboarding is needed
-    final bool isFirstInstall = prefs.getBool(AppPreferences.keyIsFirstInstall) ??
-        prefs.getBool(AppPreferences.keyIsFirstLoggin) ??
-        true;
-
-    if (isFirstInstall) {
-      Navigator.pushReplacementNamed(context, AppRoutes.getStarted);
-    } else {
-      Navigator.pushReplacementNamed(context, AppRoutes.login);
+    } catch (e) {
+      debugPrint('Splash session resolution error: $e');
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, AppRoutes.getStarted);
+      }
     }
   }
 
@@ -144,6 +154,13 @@ class _SplashViewState extends State<SplashView>
                               height: h * 0.22,
                               width: w * 0.75,
                               fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Icon(
+                                  Icons.handyman_rounded,
+                                  size: h * 0.15,
+                                  color: AppColors.primary,
+                                );
+                              },
                             ),
                           ),
                         ),

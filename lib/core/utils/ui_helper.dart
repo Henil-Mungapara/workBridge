@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 
 import '../theme/app_colors.dart';
@@ -6,6 +7,7 @@ import '../theme/app_dimensions.dart';
 import '../theme/app_text_styles.dart';
 import '../services/firebase_service.dart';
 import '../../models/user_model.dart';
+import '../../models/service_category_model.dart';
 import 'media_query_helper.dart';
 
 /// Centralized UI helper containing all reusable widgets as **static functions**.
@@ -556,28 +558,200 @@ abstract final class UiHelper {
     );
   }
 
-  /// Centralized custom AppBar.
+  /// Centralized custom AppBar with Midnight Sapphire executive styling matching Admin Dashboard.
   static PreferredSizeWidget customAppBar({
     required BuildContext context,
     required String title,
     List<Widget>? actions,
     Widget? leading,
     bool automaticallyImplyLeading = true,
-    Color backgroundColor = AppColors.card,
+    Color backgroundColor = AppColors.primary,
+    Color foregroundColor = AppColors.card,
   }) {
     return AppBar(
       title: Text(
         title,
         style: AppTextStyles.headlineSmall.copyWith(
           fontSize: MediaQueryHelper.responsiveFont(context, 18),
+          color: foregroundColor,
+          fontWeight: FontWeight.w700,
         ),
       ),
       centerTitle: true,
-      elevation: 0,
+      elevation: 1,
+      scrolledUnderElevation: 0,
       backgroundColor: backgroundColor,
       automaticallyImplyLeading: automaticallyImplyLeading,
       leading: leading,
       actions: actions,
+      iconTheme: IconThemeData(color: foregroundColor),
+      actionsIconTheme: IconThemeData(color: foregroundColor),
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: backgroundColor == AppColors.primary
+            ? Brightness.light
+            : Brightness.dark,
+        statusBarBrightness: backgroundColor == AppColors.primary
+            ? Brightness.dark
+            : Brightness.light,
+      ),
+    );
+  }
+
+  /// Centralized Profile Screen AppBar used identically across Customer,
+  /// Service Provider, and Admin panels to guarantee matching colors, typography,
+  /// and responsive layout across all profile upper parts.
+  static PreferredSizeWidget profileAppBar({
+    required BuildContext context,
+    required String title,
+    required bool isEditing,
+    required VoidCallback onToggleEdit,
+    VoidCallback? onBack,
+    Color backgroundColor = AppColors.primary,
+    Color foregroundColor = AppColors.card,
+  }) {
+    return AppBar(
+      backgroundColor: backgroundColor,
+      elevation: 1,
+      scrolledUnderElevation: 0,
+      centerTitle: true,
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: backgroundColor == AppColors.primary
+            ? Brightness.light
+            : Brightness.dark,
+        statusBarBrightness: backgroundColor == AppColors.primary
+            ? Brightness.dark
+            : Brightness.light,
+      ),
+      leading: IconButton(
+        icon: Icon(
+          Icons.arrow_back_ios_new_rounded,
+          color: foregroundColor,
+          size: 20,
+        ),
+        onPressed: onBack ?? () => Navigator.of(context).pop(),
+      ),
+      title: Text(
+        title,
+        style: AppTextStyles.headlineSmall.copyWith(
+          color: foregroundColor,
+          fontWeight: FontWeight.w700,
+          fontSize: MediaQueryHelper.responsiveFont(context, 18),
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(
+            isEditing ? Icons.close_rounded : Icons.edit_outlined,
+            color: foregroundColor,
+          ),
+          onPressed: onToggleEdit,
+        ),
+        horizontalSpace(context, 0.02),
+      ],
+    );
+  }
+
+  /// Centralized profile credential / detail row used identically across all panels.
+  static Widget profileDetailRow(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    Widget? trailing,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: AppColors.secondaryText,
+          size: MediaQueryHelper.responsiveFont(context, 19),
+        ),
+        horizontalSpace(context, 0.03),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.secondaryText,
+                  fontSize: MediaQueryHelper.responsiveFont(context, 11),
+                ),
+              ),
+              verticalSpace(context, 0.003),
+              Text(
+                value,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.mainText,
+                  fontSize: MediaQueryHelper.responsiveFont(context, 13.5),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        if (trailing != null) trailing,
+      ],
+    );
+  }
+
+  /// Centralized setting tile with icon, title, subtitle, and chevron arrow.
+  static Widget profileSettingTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color iconColor = AppColors.accent,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppDimensions.radiusSm),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          vertical: MediaQueryHelper.height(context, 0.006),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: iconColor,
+              size: MediaQueryHelper.responsiveFont(context, 20),
+            ),
+            horizontalSpace(context, 0.03),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTextStyles.titleSmall.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.mainText,
+                      fontSize: MediaQueryHelper.responsiveFont(context, 13.5),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.secondaryText,
+                      fontSize: MediaQueryHelper.responsiveFont(context, 11),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: AppColors.secondaryText,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1421,6 +1595,64 @@ abstract final class UiHelper {
       ),
     );
   }
+
+  /// Displays the standardized, responsive "Add Service Provider" dialog.
+  ///
+  /// Reusable across both [AdminDataManagementScreen] and the Admin Dashboard (+ button).
+  /// Features:
+  /// - Full Name input with validator
+  /// - Email input with validator
+  /// - Phone input with validator
+  /// - Password input with visibility toggle and min-length validator
+  /// - Role dropdown fixed to 'Service Provider'
+  /// - Dynamic Category dropdown loaded from Firestore 'categories' collection
+  /// - Mark as Verified Provider switch
+  /// - Submit button with loading spinner
+  /// - Creates account using [FirebaseService.adminCreateServiceProvider]
+  /// - Displays success/error SnackBar feedback
+  /// - Calls [onProviderAdded] on successful creation to trigger table/list refresh
+  static Future<bool?> showAddServiceProviderDialog(
+    BuildContext context, {
+    VoidCallback? onProviderAdded,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => _AddServiceProviderDialogWidget(
+        onProviderAdded: onProviderAdded,
+      ),
+    );
+  }
+
+  /// Displays the standardized "Add Category" dialog.
+  /// Dynamically persists new service categories into Firestore 'categories' collection.
+  static Future<bool?> showAddCategoryDialog(
+    BuildContext context, {
+    VoidCallback? onCategoryAdded,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => _AddCategoryDialogWidget(
+        onCategoryAdded: onCategoryAdded,
+      ),
+    );
+  }
+
+  /// Displays the dynamic Category Management dialog.
+  /// Loads all categories dynamically from Firestore 'categories' collection,
+  /// displays live distribution stats, and provides a direct button to "+ Add Category".
+  static Future<void> showCategoriesManagementDialog(
+    BuildContext context, {
+    VoidCallback? onCategoryUpdated,
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => _CategoriesManagementDialogWidget(
+        onCategoryUpdated: onCategoryUpdated,
+      ),
+    );
+  }
 }
 
 /// Standalone reusable Add Customer Dialog Widget.
@@ -1439,7 +1671,7 @@ class _AddCustomerDialogWidgetState extends State<_AddCustomerDialogWidget> {
   late final TextEditingController _passwordController;
   bool _obscurePassword = true;
   bool _isLoading = false;
-  String _selectedRole = AppRoles.customer;
+  final String _selectedRole = AppRoles.customer;
 
   @override
   void initState() {
@@ -1640,13 +1872,7 @@ class _AddCustomerDialogWidgetState extends State<_AddCustomerDialogWidget> {
                     ),
                   ),
                 ],
-                onChanged: _isLoading
-                    ? null
-                    : (val) {
-                        if (val != null) {
-                          setState(() => _selectedRole = val);
-                        }
-                      },
+                onChanged: null,
               ),
             ],
           ),
@@ -1718,3 +1944,965 @@ class _AddCustomerDialogWidgetState extends State<_AddCustomerDialogWidget> {
     );
   }
 }
+
+/// Standalone reusable Add Service Provider Dialog Widget.
+class _AddServiceProviderDialogWidget extends StatefulWidget {
+  final VoidCallback? onProviderAdded;
+
+  const _AddServiceProviderDialogWidget({this.onProviderAdded});
+
+  @override
+  State<_AddServiceProviderDialogWidget> createState() => _AddServiceProviderDialogWidgetState();
+}
+
+class _AddServiceProviderDialogWidgetState extends State<_AddServiceProviderDialogWidget> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _passwordController;
+
+  bool _obscurePassword = true;
+  bool _isLoading = false;
+  bool _isVerified = true;
+  final String _selectedRole = AppRoles.serviceProvider;
+
+  List<ServiceCategory> _categories = [];
+  String? _selectedCategory;
+  bool _isLoadingCategories = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _emailController = TextEditingController();
+    _phoneController = TextEditingController();
+    _passwordController = TextEditingController();
+    _loadDynamicCategories();
+  }
+
+  Future<void> _loadDynamicCategories() async {
+    try {
+      final cats = await FirebaseService().fetchCategories();
+      if (!mounted) return;
+      setState(() {
+        _categories = cats;
+        if (cats.isNotEmpty) {
+          _selectedCategory = cats.first.name;
+        }
+        _isLoadingCategories = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _categories = ServiceCategory.all8Categories;
+        _selectedCategory = ServiceCategory.all8Categories.first.name;
+        _isLoadingCategories = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSubmit() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedCategory == null || _selectedCategory!.isEmpty) {
+      UiHelper.showSnackBar(context, 'Please select a service category', isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await FirebaseService().adminCreateServiceProvider(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text.trim(),
+        category: _selectedCategory!,
+        isVerified: _isVerified,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+
+      final String createdUid = result['uid'] as String? ?? '';
+      UiHelper.showSnackBar(
+        context,
+        'Service Provider "${_nameController.text.trim()}" created successfully! ($createdUid)',
+        isError: false,
+      );
+      widget.onProviderAdded?.call();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        UiHelper.showSnackBar(
+          context,
+          e.toString().replaceFirst('Exception: ', ''),
+          isError: true,
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.card,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
+        side: const BorderSide(color: AppColors.border, width: 1.2),
+      ),
+      elevation: 10,
+      shadowColor: AppColors.primary.withValues(alpha: 0.2),
+      titlePadding: EdgeInsets.fromLTRB(
+        MediaQueryHelper.width(context, 0.06),
+        MediaQueryHelper.height(context, 0.025),
+        MediaQueryHelper.width(context, 0.06),
+        0,
+      ),
+      contentPadding: EdgeInsets.fromLTRB(
+        MediaQueryHelper.width(context, 0.06),
+        MediaQueryHelper.height(context, 0.015),
+        MediaQueryHelper.width(context, 0.06),
+        0,
+      ),
+      actionsPadding: EdgeInsets.fromLTRB(
+        MediaQueryHelper.width(context, 0.06),
+        MediaQueryHelper.height(context, 0.015),
+        MediaQueryHelper.width(context, 0.06),
+        MediaQueryHelper.height(context, 0.024),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.engineering_rounded,
+              color: AppColors.primary,
+              size: MediaQueryHelper.responsiveFont(context, 22),
+            ),
+          ),
+          SizedBox(width: MediaQueryHelper.width(context, 0.03)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Add Service Provider',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    fontSize: MediaQueryHelper.responsiveFont(context, 17.5),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Register new certified technician',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.secondaryText,
+                    fontSize: MediaQueryHelper.responsiveFont(context, 11.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              UiHelper.customTextField(
+                context: context,
+                controller: _nameController,
+                labelText: 'Full Name',
+                hintText: 'e.g. Ramesh Patel',
+                prefixIcon: Icons.badge_outlined,
+                enabled: !_isLoading,
+                widthFraction: 1.0,
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter provider full name';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: MediaQueryHelper.height(context, 0.014)),
+              UiHelper.customTextField(
+                context: context,
+                controller: _emailController,
+                labelText: 'Email Address',
+                hintText: 'provider@example.com',
+                prefixIcon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
+                enabled: !_isLoading,
+                widthFraction: 1.0,
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter an email address';
+                  }
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                    return 'Please enter a valid email format';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: MediaQueryHelper.height(context, 0.014)),
+              UiHelper.customTextField(
+                context: context,
+                controller: _phoneController,
+                labelText: 'Phone Number',
+                hintText: '+91 98765 43210',
+                prefixIcon: Icons.phone_outlined,
+                keyboardType: TextInputType.phone,
+                enabled: !_isLoading,
+                widthFraction: 1.0,
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter contact phone number';
+                  }
+                  if (val.trim().length < 7) {
+                    return 'Please enter a valid phone number';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: MediaQueryHelper.height(context, 0.014)),
+              UiHelper.customTextField(
+                context: context,
+                controller: _passwordController,
+                labelText: 'Password',
+                hintText: 'Enter secure password',
+                prefixIcon: Icons.lock_outline_rounded,
+                obscureText: _obscurePassword,
+                enabled: !_isLoading,
+                widthFraction: 1.0,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    size: 20,
+                    color: AppColors.secondaryText,
+                  ),
+                  onPressed: () {
+                    setState(() => _obscurePassword = !_obscurePassword);
+                  },
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter a password';
+                  }
+                  if (val.trim().length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: MediaQueryHelper.height(context, 0.014)),
+              UiHelper.customDropdown<String>(
+                context: context,
+                labelText: 'Assigned Role',
+                value: _selectedRole,
+                prefixIcon: Icons.shield_outlined,
+                widthFraction: 1.0,
+                items: const [
+                  DropdownMenuItem(
+                    value: AppRoles.serviceProvider,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.handyman_rounded, size: 18, color: AppColors.accent),
+                        SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Service Provider',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                onChanged: null,
+              ),
+              SizedBox(height: MediaQueryHelper.height(context, 0.014)),
+              if (_isLoadingCategories) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Center(
+                    child: SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                UiHelper.customDropdown<String>(
+                  context: context,
+                  labelText: 'Service Category (From Database)',
+                  hintText: 'Select category from DB',
+                  value: _selectedCategory,
+                  prefixIcon: Icons.category_rounded,
+                  widthFraction: 1.0,
+                  items: _categories.map((cat) {
+                    return DropdownMenuItem<String>(
+                      value: cat.name,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(cat.icon, size: 18, color: cat.accentColor),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              cat.name,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: _isLoading
+                      ? null
+                      : (val) {
+                          if (val != null) {
+                            setState(() => _selectedCategory = val);
+                          }
+                        },
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Please select a service category';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+              SizedBox(height: MediaQueryHelper.height(context, 0.01)),
+              UiHelper.customCheckbox(
+                context: context,
+                value: _isVerified,
+                widthFraction: 1.0,
+                onChanged: _isLoading
+                    ? (_) {}
+                    : (val) {
+                        setState(() => _isVerified = val ?? true);
+                      },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Mark as Verified Provider',
+                      style: AppTextStyles.labelMedium.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                        fontSize: MediaQueryHelper.responsiveFont(context, 13),
+                      ),
+                    ),
+                    Text(
+                      'Immediately eligible for customer gig booking and dispatch',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.secondaryText,
+                        fontSize: MediaQueryHelper.responsiveFont(context, 11),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.secondaryText,
+                  side: const BorderSide(color: AppColors.border, width: 1.2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppDimensions.borderRadius),
+                  ),
+                  padding: EdgeInsets.symmetric(
+                    vertical: MediaQueryHelper.height(context, 0.013),
+                  ),
+                ),
+                child: Text(
+                  'Cancel',
+                  style: AppTextStyles.button.copyWith(
+                    color: AppColors.secondaryText,
+                    fontWeight: FontWeight.w600,
+                    fontSize: MediaQueryHelper.responsiveFont(context, 13.5),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: MediaQueryHelper.width(context, 0.03)),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _handleSubmit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.card,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppDimensions.borderRadius),
+                  ),
+                  padding: EdgeInsets.symmetric(
+                    vertical: MediaQueryHelper.height(context, 0.013),
+                  ),
+                ),
+                child: _isLoading
+                    ? SizedBox(
+                        height: MediaQueryHelper.height(context, 0.022),
+                        width: MediaQueryHelper.height(context, 0.022),
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.card),
+                        ),
+                      )
+                    : Text(
+                        'Add Provider',
+                        style: AppTextStyles.button.copyWith(
+                          color: AppColors.card,
+                          fontWeight: FontWeight.w700,
+                          fontSize: MediaQueryHelper.responsiveFont(context, 13.5),
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Standalone reusable Add Category Dialog Widget.
+class _AddCategoryDialogWidget extends StatefulWidget {
+  final VoidCallback? onCategoryAdded;
+
+  const _AddCategoryDialogWidget({this.onCategoryAdded});
+
+  @override
+  State<_AddCategoryDialogWidget> createState() => _AddCategoryDialogWidgetState();
+}
+
+class _AddCategoryDialogWidgetState extends State<_AddCategoryDialogWidget> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _descController;
+  String _selectedIconKey = 'category';
+  String _selectedColorHex = '#00B4D8';
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _descController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSubmit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final icon = ServiceCategory.iconFromKey(_selectedIconKey);
+      final color = ServiceCategory.colorFromHex(_selectedColorHex);
+
+      final created = await FirebaseService().adminCreateCategory(
+        name: _nameController.text.trim(),
+        description: _descController.text.trim(),
+        icon: icon,
+        accentColor: color,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+
+      UiHelper.showSnackBar(
+        context,
+        'Category "${created.name}" created successfully in Firestore! (${created.id})',
+        isError: false,
+      );
+      widget.onCategoryAdded?.call();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        UiHelper.showSnackBar(
+          context,
+          e.toString().replaceFirst('Exception: ', ''),
+          isError: true,
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.card,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
+        side: const BorderSide(color: AppColors.border, width: 1.2),
+      ),
+      elevation: 10,
+      shadowColor: AppColors.primary.withValues(alpha: 0.2),
+      titlePadding: EdgeInsets.fromLTRB(
+        MediaQueryHelper.width(context, 0.06),
+        MediaQueryHelper.height(context, 0.025),
+        MediaQueryHelper.width(context, 0.06),
+        0,
+      ),
+      contentPadding: EdgeInsets.fromLTRB(
+        MediaQueryHelper.width(context, 0.06),
+        MediaQueryHelper.height(context, 0.015),
+        MediaQueryHelper.width(context, 0.06),
+        0,
+      ),
+      actionsPadding: EdgeInsets.fromLTRB(
+        MediaQueryHelper.width(context, 0.06),
+        MediaQueryHelper.height(context, 0.015),
+        MediaQueryHelper.width(context, 0.06),
+        MediaQueryHelper.height(context, 0.024),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.add_to_photos_rounded,
+              color: AppColors.primary,
+              size: MediaQueryHelper.responsiveFont(context, 22),
+            ),
+          ),
+          SizedBox(width: MediaQueryHelper.width(context, 0.03)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Add New Category',
+                  style: AppTextStyles.titleMedium.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    fontSize: MediaQueryHelper.responsiveFont(context, 17.5),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Save dynamically to Firestore categories collection',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.secondaryText,
+                    fontSize: MediaQueryHelper.responsiveFont(context, 11),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              UiHelper.customTextField(
+                context: context,
+                controller: _nameController,
+                labelText: 'Category Name',
+                hintText: 'e.g. Pest Control, Roofing, Masonry',
+                prefixIcon: Icons.category_rounded,
+                enabled: !_isLoading,
+                widthFraction: 1.0,
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter category name';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: MediaQueryHelper.height(context, 0.014)),
+              UiHelper.customTextField(
+                context: context,
+                controller: _descController,
+                labelText: 'Description',
+                hintText: 'Describe services covered in this category...',
+                prefixIcon: Icons.description_outlined,
+                maxLines: 2,
+                enabled: !_isLoading,
+                widthFraction: 1.0,
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter category description';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: MediaQueryHelper.height(context, 0.014)),
+              UiHelper.customDropdown<String>(
+                context: context,
+                labelText: 'Category Icon',
+                value: _selectedIconKey,
+                prefixIcon: ServiceCategory.iconFromKey(_selectedIconKey),
+                widthFraction: 1.0,
+                items: ServiceCategory.availableIcons.map((item) {
+                  final key = item['key'] as String;
+                  final name = item['name'] as String;
+                  final icon = item['icon'] as IconData;
+                  return DropdownMenuItem<String>(
+                    value: key,
+                    child: Row(
+                      children: [
+                        Icon(icon, size: 20, color: AppColors.primary),
+                        const SizedBox(width: 10),
+                        Text(name),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: _isLoading
+                    ? null
+                    : (val) {
+                        if (val != null) {
+                          setState(() => _selectedIconKey = val);
+                        }
+                      },
+              ),
+              SizedBox(height: MediaQueryHelper.height(context, 0.014)),
+              UiHelper.customDropdown<String>(
+                context: context,
+                labelText: 'Accent Color',
+                value: _selectedColorHex,
+                prefixIcon: Icons.palette_outlined,
+                widthFraction: 1.0,
+                items: ServiceCategory.availableColors.map((item) {
+                  final hex = item['hex'] as String;
+                  final name = item['name'] as String;
+                  final color = item['color'] as Color;
+                  return DropdownMenuItem<String>(
+                    value: hex,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(name),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: _isLoading
+                    ? null
+                    : (val) {
+                        if (val != null) {
+                          setState(() => _selectedColorHex = val);
+                        }
+                      },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.secondaryText,
+                  side: const BorderSide(color: AppColors.border, width: 1.2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppDimensions.borderRadius),
+                  ),
+                  padding: EdgeInsets.symmetric(
+                    vertical: MediaQueryHelper.height(context, 0.013),
+                  ),
+                ),
+                child: Text(
+                  'Cancel',
+                  style: AppTextStyles.button.copyWith(
+                    color: AppColors.secondaryText,
+                    fontWeight: FontWeight.w600,
+                    fontSize: MediaQueryHelper.responsiveFont(context, 13.5),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: MediaQueryHelper.width(context, 0.03)),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _handleSubmit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.card,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppDimensions.borderRadius),
+                  ),
+                  padding: EdgeInsets.symmetric(
+                    vertical: MediaQueryHelper.height(context, 0.013),
+                  ),
+                ),
+                child: _isLoading
+                    ? SizedBox(
+                        height: MediaQueryHelper.height(context, 0.022),
+                        width: MediaQueryHelper.height(context, 0.022),
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.card),
+                        ),
+                      )
+                    : Text(
+                        'Save Category',
+                        style: AppTextStyles.button.copyWith(
+                          color: AppColors.card,
+                          fontWeight: FontWeight.w700,
+                          fontSize: MediaQueryHelper.responsiveFont(context, 13.5),
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Standalone reusable Dynamic Categories Management Dialog.
+class _CategoriesManagementDialogWidget extends StatefulWidget {
+  final VoidCallback? onCategoryUpdated;
+
+  const _CategoriesManagementDialogWidget({this.onCategoryUpdated});
+
+  @override
+  State<_CategoriesManagementDialogWidget> createState() => _CategoriesManagementDialogWidgetState();
+}
+
+class _CategoriesManagementDialogWidgetState extends State<_CategoriesManagementDialogWidget> {
+  List<ServiceCategory> _categories = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCategories();
+  }
+
+  Future<void> _fetchCategories() async {
+    setState(() => _isLoading = true);
+    final cats = await FirebaseService().fetchCategories();
+    if (mounted) {
+      setState(() {
+        _categories = cats;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: AppColors.card,
+      surfaceTintColor: Colors.transparent,
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.category_rounded, color: AppColors.primary, size: 22),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Category Management',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                ),
+                Text(
+                  'Dynamic Firestore categories & platform catalog',
+                  style: TextStyle(fontSize: 11, color: AppColors.secondaryText),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: _isLoading
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          '${_categories.length} Categories',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.secondaryText,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
+                        label: const Text('Add Category', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          UiHelper.showAddCategoryDialog(
+                            context,
+                            onCategoryAdded: () {
+                              _fetchCategories();
+                              widget.onCategoryUpdated?.call();
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.45,
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: _categories.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final cat = _categories[index];
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: cat.accentColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(cat.icon, color: cat.accentColor, size: 20),
+                          ),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  cat.name,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  cat.id,
+                                  style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Text(
+                            cat.description,
+                            style: const TextStyle(fontSize: 11, color: AppColors.secondaryText),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: Switch(
+                            value: cat.isActive,
+                            activeTrackColor: AppColors.success,
+                            onChanged: (val) async {
+                              final updated = cat.copyWith(isActive: val);
+                              setState(() {
+                                _categories[index] = updated;
+                              });
+                              await FirebaseService().updateCategory(updated);
+                              if (context.mounted) {
+                                UiHelper.showSnackBar(
+                                  context,
+                                  val ? '${cat.name} activated on platform' : '${cat.name} deactivated on platform',
+                                );
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
+

@@ -98,11 +98,11 @@ class _CustomerBookingsViewState extends State<CustomerBookingsView>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.card,
-        elevation: 0.5,
+        backgroundColor: AppColors.primary,
+        elevation: 1,
         leading: widget.onBackToDashboard != null
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.primary, size: 20),
+                icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.card, size: 20),
                 onPressed: widget.onBackToDashboard,
               )
             : null,
@@ -110,13 +110,13 @@ class _CustomerBookingsViewState extends State<CustomerBookingsView>
           'My Service Bookings',
           style: AppTextStyles.titleMedium.copyWith(
             fontWeight: FontWeight.w800,
-            color: AppColors.primary,
+            color: AppColors.card,
           ),
         ),
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.accent,
-          unselectedLabelColor: AppColors.secondaryText,
+          unselectedLabelColor: AppColors.card.withValues(alpha: 0.75),
           indicatorColor: AppColors.accent,
           indicatorWeight: 3,
           tabs: const [
