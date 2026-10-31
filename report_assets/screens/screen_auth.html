@@ -1,0 +1,64 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  
+  * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  body { margin: 0; padding: 10px; background: #e2e8f0; display: flex; justify-content: center; align-items: center; }
+  .phone-frame {
+    width: 380px; height: 500px; background: #ffffff; border-radius: 28px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15); border: 8px solid #1e293b;
+    position: relative; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .status-bar {
+    height: 24px; background: #008f80; color: #fff; font-size: 11px; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: center; padding: 0 16px;
+  }
+  .app-bar {
+    height: 48px; background: #00A896; color: #fff; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .app-title { font-size: 16px; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+  .screen-content { flex: 1; overflow-y: hidden; padding: 12px; background: #f8fafc; }
+  .nav-bar {
+    height: 44px; background: #fff; border-top: 1px solid #e2e8f0; display: flex;
+    justify-content: space-around; align-items: center; font-size: 9px; color: #64748b;
+  }
+  .nav-item.active { color: #00A896; font-weight: bold; }
+
+  body { gap: 20px; }
+</style></head>
+<body>
+<!-- Login Screen -->
+<div class="phone-frame">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+  <div class="app-bar"><div class="app-title">🌉 WorkBridge Login</div></div>
+  <div class="screen-content" style="display:flex; flex-direction:column; justify-content:center; gap: 10px;">
+    <div style="text-align:center;">
+      <div style="font-size: 26px;">🌉</div>
+      <div style="font-size: 15px; font-weight:bold; color: #00A896;">Welcome Back</div>
+      <div style="font-size: 10px; color: #64748b;">Sign in to continue</div>
+    </div>
+    <input style="padding: 9px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 11px;" value="customer@workbridge.com"/>
+    <input style="padding: 9px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 11px;" type="password" value="••••••••••••"/>
+    <button style="background: #00A896; color: #fff; padding: 10px; border:none; border-radius: 6px; font-weight:bold; font-size: 12px;">Sign In</button>
+    <div style="text-align:right; font-size: 10px; color: #0284C7;">Forgot Password?</div>
+    <div style="text-align:center; font-size: 10px; color: #64748b; margin-top: 10px;">Or log in with Google / OTP</div>
+  </div>
+</div>
+
+<!-- Register Screen -->
+<div class="phone-frame">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+  <div class="app-bar"><div class="app-title">Create Account</div></div>
+  <div class="screen-content" style="display:flex; flex-direction:column; gap: 8px;">
+    <div style="font-size: 13px; font-weight:bold; color: #1e293b;">Join WorkBridge</div>
+    <input style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 11px;" placeholder="Full Name" value="Henil Mungapara"/>
+    <input style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 11px;" placeholder="Email Address" value="henil@workbridge.com"/>
+    <input style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 11px;" placeholder="Phone Number" value="+91 98765 43210"/>
+    <select style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 11px;">
+      <option>Select Role: Customer</option>
+      <option>Service Provider (Karigar)</option>
+    </select>
+    <input style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 11px;" type="password" value="••••••••••••"/>
+    <button style="background: #00A896; color: #fff; padding: 9px; border:none; border-radius: 6px; font-weight:bold; font-size: 12px; margin-top: 6px;">Register Account</button>
+  </div>
+</div>
+</body></html>

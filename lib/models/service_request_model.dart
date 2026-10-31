@@ -77,6 +77,17 @@ class ServiceRequestModel {
   final String? cancelledAt;
   final String? cancellationReason;
 
+  /// Location coordinates and city (e.g. "Gondal")
+  final double? customerLatitude;
+  final double? customerLongitude;
+  final String? customerCity;
+
+  /// Provider starting, live current, and ending locations
+  final Map<String, dynamic>? providerStartLocation;
+  final Map<String, dynamic>? providerEndLocation;
+  final Map<String, dynamic>? providerCurrentLocation;
+  final String? trackingStatus;
+
   const ServiceRequestModel({
     required this.id,
     required this.customerId,
@@ -104,6 +115,13 @@ class ServiceRequestModel {
     this.completedAt,
     this.cancelledAt,
     this.cancellationReason,
+    this.customerLatitude,
+    this.customerLongitude,
+    this.customerCity,
+    this.providerStartLocation,
+    this.providerEndLocation,
+    this.providerCurrentLocation,
+    this.trackingStatus,
   });
 
   bool get isBroadcast => requestType == RequestDispatchType.broadcast;
@@ -165,6 +183,19 @@ class ServiceRequestModel {
       completedAt: map['completedAt'] as String?,
       cancelledAt: map['cancelledAt'] as String?,
       cancellationReason: map['cancellationReason'] as String?,
+      customerLatitude: (map['customerLatitude'] as num?)?.toDouble(),
+      customerLongitude: (map['customerLongitude'] as num?)?.toDouble(),
+      customerCity: map['customerCity'] as String?,
+      providerStartLocation: map['providerStartLocation'] != null
+          ? Map<String, dynamic>.from(map['providerStartLocation'] as Map)
+          : null,
+      providerEndLocation: map['providerEndLocation'] != null
+          ? Map<String, dynamic>.from(map['providerEndLocation'] as Map)
+          : null,
+      providerCurrentLocation: map['providerCurrentLocation'] != null
+          ? Map<String, dynamic>.from(map['providerCurrentLocation'] as Map)
+          : null,
+      trackingStatus: map['trackingStatus'] as String?,
     );
   }
 
@@ -197,6 +228,13 @@ class ServiceRequestModel {
       'completedAt': completedAt,
       'cancelledAt': cancelledAt,
       'cancellationReason': cancellationReason,
+      if (customerLatitude != null) 'customerLatitude': customerLatitude,
+      if (customerLongitude != null) 'customerLongitude': customerLongitude,
+      if (customerCity != null) 'customerCity': customerCity,
+      if (providerStartLocation != null) 'providerStartLocation': providerStartLocation,
+      if (providerEndLocation != null) 'providerEndLocation': providerEndLocation,
+      if (providerCurrentLocation != null) 'providerCurrentLocation': providerCurrentLocation,
+      if (trackingStatus != null) 'trackingStatus': trackingStatus,
     };
   }
 
@@ -228,6 +266,13 @@ class ServiceRequestModel {
     String? cancelledAt,
     String? cancellationReason,
     bool clearAssigned = false,
+    double? customerLatitude,
+    double? customerLongitude,
+    String? customerCity,
+    Map<String, dynamic>? providerStartLocation,
+    Map<String, dynamic>? providerEndLocation,
+    Map<String, dynamic>? providerCurrentLocation,
+    String? trackingStatus,
   }) {
     return ServiceRequestModel(
       id: id ?? this.id,
@@ -256,6 +301,13 @@ class ServiceRequestModel {
       completedAt: completedAt ?? this.completedAt,
       cancelledAt: cancelledAt ?? this.cancelledAt,
       cancellationReason: cancellationReason ?? this.cancellationReason,
+      customerLatitude: customerLatitude ?? this.customerLatitude,
+      customerLongitude: customerLongitude ?? this.customerLongitude,
+      customerCity: customerCity ?? this.customerCity,
+      providerStartLocation: providerStartLocation ?? this.providerStartLocation,
+      providerEndLocation: providerEndLocation ?? this.providerEndLocation,
+      providerCurrentLocation: providerCurrentLocation ?? this.providerCurrentLocation,
+      trackingStatus: trackingStatus ?? this.trackingStatus,
     );
   }
 

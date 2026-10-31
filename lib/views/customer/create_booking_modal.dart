@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../controllers/user_controller.dart';
 import '../../core/constants/app_currency.dart';
+import '../../core/services/location_service.dart';
 import '../../core/services/service_request_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
@@ -81,6 +82,52 @@ class _CreateBookingModalState extends State<CreateBookingModal> {
     _amountController = TextEditingController(text: '1200');
 
     _fetchProviders();
+    _autoDetectLocation();
+  }
+
+  AppLocationData? _detectedLocation;
+  bool _isDetectingLocation = false;
+
+  Future<void> _autoDetectLocation() async {
+    try {
+      final loc = await LocationService().getCurrentLocation();
+      if (mounted) {
+        setState(() {
+          _detectedLocation = loc;
+          if (_addressController.text == 'Home / Primary Residence') {
+            _addressController.text = loc.address;
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _detectCurrentLocation() async {
+    setState(() => _isDetectingLocation = true);
+    final hasPerm = await LocationService().checkAndEnforceLocationPermission(
+      context: context,
+      roleTitle: 'Customer',
+      actionReason: 'locate your premises and dispatch a nearby specialist',
+    );
+
+    if (!hasPerm) {
+      if (mounted) setState(() => _isDetectingLocation = false);
+      return;
+    }
+
+    final loc = await LocationService().getCurrentLocation();
+    if (mounted) {
+      setState(() {
+        _detectedLocation = loc;
+        _addressController.text = loc.address;
+        _isDetectingLocation = false;
+      });
+      UiHelper.showSnackBar(
+        context,
+        'Location detected: ${loc.city} (${loc.address})',
+        isError: false,
+      );
+    }
   }
 
   @override
@@ -153,12 +200,50 @@ class _CreateBookingModalState extends State<CreateBookingModal> {
     }
 
     final user = context.read<UserController>().user;
+    final String timeStr = _selectedTime.format(context);
     final double amount = double.tryParse(_amountController.text.trim()) ?? 1200.0;
     final String dateStr =
         '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
-    final String timeStr = _selectedTime.format(context);
+
+    // 1. Mandatory Location Permission Enforcement
+    final hasLocation = await LocationService().checkAndEnforceLocationPermission(
+      context: context,
+      roleTitle: 'Customer',
+      actionReason: 'locate your premises and dispatch a nearby specialist',
+    );
+
+    if (!hasLocation) {
+      if (mounted) {
+        UiHelper.showSnackBar(
+          context,
+          'Location Required: Please turn on device location to send your service request.',
+          isError: true,
+        );
+      }
+      return;
+    }
 
     setState(() => _isSubmitting = true);
+
+    // 2. Fetch Verified Location Coordinates & City
+    AppLocationData locationData;
+    if (_detectedLocation != null) {
+      locationData = _detectedLocation!;
+    } else {
+      try {
+        locationData = await LocationService().getCurrentLocation();
+      } catch (_) {
+        locationData = AppLocationData(
+          latitude: LocationService.defaultLat,
+          longitude: LocationService.defaultLng,
+          address: _addressController.text.trim().isNotEmpty
+              ? _addressController.text.trim()
+              : LocationService.defaultAddress,
+          city: LocationService.defaultCity,
+          timestamp: DateTime.now(),
+        );
+      }
+    }
 
     try {
       await _requestService.createRequest(
@@ -182,6 +267,9 @@ class _CreateBookingModalState extends State<CreateBookingModal> {
         targetProviderName: _dispatchMode == RequestDispatchType.specific
             ? _selectedProvider?.name
             : null,
+        customerLatitude: locationData.latitude,
+        customerLongitude: locationData.longitude,
+        customerCity: locationData.city,
       );
 
       if (mounted) {
@@ -311,7 +399,7 @@ class _CreateBookingModalState extends State<CreateBookingModal> {
                       subtitle:
                           'Browse and choose a specific verified specialist based on their rating, completed tasks, and contact.',
                       icon: Icons.person_pin_rounded,
-                      accentColor: Colors.purple,
+                      accentColor: AppColors.primary,
                     ),
 
                     // Specific Provider Picker List
@@ -371,11 +459,11 @@ class _CreateBookingModalState extends State<CreateBookingModal> {
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? Colors.purple.withValues(alpha: 0.08)
+                                      ? AppColors.primary.withValues(alpha: 0.08)
                                       : AppColors.background,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: isSelected ? Colors.purple : AppColors.border,
+                                    color: isSelected ? AppColors.primary : AppColors.border,
                                     width: isSelected ? 1.5 : 1,
                                   ),
                                 ),
@@ -383,7 +471,7 @@ class _CreateBookingModalState extends State<CreateBookingModal> {
                                   children: [
                                     CircleAvatar(
                                       radius: 20,
-                                      backgroundColor: isSelected ? Colors.purple : AppColors.accent,
+                                      backgroundColor: isSelected ? AppColors.primary : AppColors.accent,
                                       child: Text(
                                         provider.name.isNotEmpty
                                             ? provider.name[0].toUpperCase()
@@ -432,7 +520,7 @@ class _CreateBookingModalState extends State<CreateBookingModal> {
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                          color: isSelected ? Colors.purple : AppColors.secondaryText,
+                                          color: isSelected ? AppColors.primary : AppColors.secondaryText,
                                           width: isSelected ? 6.5 : 2,
                                         ),
                                       ),
@@ -488,17 +576,70 @@ class _CreateBookingModalState extends State<CreateBookingModal> {
 
                     const SizedBox(height: 12),
 
-                    // Service Address / Location
+                    // Service Address / Location with GPS Auto-detection
                     TextFormField(
                       controller: _addressController,
                       decoration: InputDecoration(
                         labelText: 'Service Address / Location',
                         hintText: 'Enter street address, building, or landmark',
                         prefixIcon: const Icon(Icons.location_on_outlined, color: AppColors.primary),
+                        suffixIcon: _isDetectingLocation
+                            ? const Padding(
+                                padding: EdgeInsets.all(12.0),
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              )
+                            : IconButton(
+                                icon: const Icon(Icons.my_location_rounded, color: AppColors.accent),
+                                tooltip: 'Detect Current GPS Location',
+                                onPressed: _detectCurrentLocation,
+                              ),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       validator: (val) =>
                           (val == null || val.trim().isEmpty) ? 'Please enter address' : null,
+                    ),
+
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.fmd_good_rounded, size: 16, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _detectedLocation != null
+                                  ? 'GPS Verified: ${_detectedLocation!.city} (${_detectedLocation!.latitude.toStringAsFixed(4)}, ${_detectedLocation!.longitude.toStringAsFixed(4)})'
+                                  : 'Location: Gondal, Gujarat (Auto-detects GPS coordinates)',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.secondaryText,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: _detectCurrentLocation,
+                            child: Text(
+                              _detectedLocation != null ? 'Refresh GPS' : 'Detect GPS',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.accentDark,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
 
                     const SizedBox(height: 12),
@@ -591,7 +732,7 @@ class _CreateBookingModalState extends State<CreateBookingModal> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _dispatchMode == RequestDispatchType.broadcast
                               ? AppColors.accent
-                              : Colors.purple,
+                              : AppColors.primary,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),

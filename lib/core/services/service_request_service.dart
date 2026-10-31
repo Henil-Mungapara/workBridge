@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import '../../models/service_category_model.dart';
 import '../../models/service_request_model.dart';
 import '../../models/user_model.dart';
+import 'live_tracking_service.dart';
+import 'location_service.dart';
 
 /// Centralized service managing service requests, dual-mode Karigar dispatch,
 /// real-time streams, and atomic concurrency transactions.
@@ -45,6 +47,9 @@ class ServiceRequestService {
     String requestType = RequestDispatchType.broadcast,
     String? targetProviderId,
     String? targetProviderName,
+    double? customerLatitude,
+    double? customerLongitude,
+    String? customerCity,
   }) async {
     final String docId = 'req_${DateTime.now().millisecondsSinceEpoch}';
     final request = ServiceRequestModel(
@@ -67,6 +72,9 @@ class ServiceRequestService {
       declinedBy: const [],
       canceledBy: const [],
       createdAt: DateTime.now().toIso8601String(),
+      customerLatitude: customerLatitude,
+      customerLongitude: customerLongitude,
+      customerCity: customerCity,
     );
 
     final col = _requestsCollection;
@@ -98,15 +106,18 @@ class ServiceRequestService {
   /// Streams incoming pending requests for this provider.
   /// - Only emits when [isOnline] is true.
   /// - Excludes requests already declined or previously cancelled by this provider.
-  /// - For broadcast requests: matches provider's assigned categories.
+  /// - For broadcast requests: matches provider's assigned categories, specific category filter,
+  ///   or shows all open broadcast requests when [showAllOpenRequests] is true.
   /// - For specific requests: matches [targetProviderId] == [providerId].
   Stream<List<ServiceRequestModel>> streamProviderIncomingRequests({
     required String providerId,
     required List<String> providerCategories,
     required bool isOnline,
+    bool showAllOpenRequests = false,
+    String? filterCategoryId,
   }) {
     final col = _requestsCollection;
-    if (!isOnline || providerId.isEmpty || col == null) {
+    if (!isOnline || col == null) {
       return Stream.value([]);
     }
 
@@ -120,25 +131,40 @@ class ServiceRequestService {
         final req = ServiceRequestModel.fromFirestore(doc);
 
         // Skip if this provider previously declined this request
-        if (req.declinedBy.contains(providerId)) continue;
+        if (providerId.isNotEmpty && req.declinedBy.contains(providerId)) continue;
 
         // Skip if this provider previously accepted and then cancelled this request
-        if (req.canceledBy.contains(providerId)) continue;
+        if (providerId.isNotEmpty && req.canceledBy.contains(providerId)) continue;
 
         if (req.isSpecific) {
           // Specific Karigar request: only show if targeted to this provider
-          if (req.targetProviderId == providerId) {
+          if (providerId.isNotEmpty && req.targetProviderId == providerId) {
             results.add(req);
           }
         } else {
-          // Random Karigar (Broadcast) request: show if category matches provider's specialties
-          final matchesCategory = _matchesProviderCategory(
-            reqCategoryName: req.categoryName,
-            reqCategoryId: req.categoryId,
-            providerCategories: providerCategories,
-          );
-          if (matchesCategory) {
+          // Random Karigar (Broadcast) request
+          if (filterCategoryId != null &&
+              filterCategoryId.isNotEmpty &&
+              filterCategoryId.toLowerCase() != 'all') {
+            final matchesFilter = _matchesSpecificCategory(req, filterCategoryId);
+            if (matchesFilter) {
+              results.add(req);
+            }
+          } else if (showAllOpenRequests ||
+              providerCategories.isEmpty ||
+              providerCategories.any((c) => c.toLowerCase() == 'all')) {
+            // Show all open broadcast requests
             results.add(req);
+          } else {
+            // Random Karigar (Broadcast) request: show if category matches provider's specialties
+            final matchesCategory = _matchesProviderCategory(
+              reqCategoryName: req.categoryName,
+              reqCategoryId: req.categoryId,
+              providerCategories: providerCategories,
+            );
+            if (matchesCategory) {
+              results.add(req);
+            }
           }
         }
       }
@@ -208,6 +234,7 @@ class ServiceRequestService {
   Future<bool> acceptRequest({
     required String requestId,
     required UserModel provider,
+    AppLocationData? providerStartLocation,
   }) async {
     final firestore = _firestore;
     final col = _requestsCollection;
@@ -215,7 +242,9 @@ class ServiceRequestService {
 
     final docRef = col.doc(requestId);
 
-    return await firestore.runTransaction<bool>((transaction) async {
+    ServiceRequestModel? requestSnapshot;
+
+    await firestore.runTransaction<bool>((transaction) async {
       final snapshot = await transaction.get(docRef);
 
       if (!snapshot.exists || snapshot.data() == null) {
@@ -232,18 +261,58 @@ class ServiceRequestService {
         throw 'Sorry! This job was just accepted by another service provider.';
       }
 
-      // Atomically update document to accepted state
-      transaction.update(docRef, {
+      requestSnapshot = ServiceRequestModel.fromMap(data, requestId);
+
+      final Map<String, dynamic> updateFields = {
         'status': RequestStatus.accepted,
         'assignedProviderId': provider.uid,
         'assignedProviderName': provider.name,
         'assignedProviderPhone': provider.phone,
         'acceptedAt': DateTime.now().toIso8601String(),
         'updatedAt': DateTime.now().toIso8601String(),
-      });
+      };
+
+      if (providerStartLocation != null) {
+        updateFields['providerStartLocation'] = providerStartLocation.toMap();
+        updateFields['providerCurrentLocation'] = providerStartLocation.toMap();
+        updateFields['trackingStatus'] = TrackingState.enRoute;
+      }
+
+      // Atomically update document to accepted state
+      transaction.update(docRef, updateFields);
 
       return true;
     });
+
+    // Start live tracking session across Realtime Database tree and Firestore
+    if (providerStartLocation != null && requestSnapshot != null) {
+      final req = requestSnapshot!;
+      final cLat = req.customerLatitude ?? LocationService.defaultLat;
+      final cLng = req.customerLongitude ?? LocationService.defaultLng;
+      final cAddr = req.customerAddress;
+      final cCity = req.customerCity ?? LocationService.defaultCity;
+
+      final customerLocation = AppLocationData(
+        latitude: cLat,
+        longitude: cLng,
+        address: cAddr,
+        city: cCity,
+        timestamp: DateTime.now(),
+      );
+
+      await LiveTrackingService().startTrackingSession(
+        requestId: requestId,
+        providerId: provider.uid,
+        providerName: provider.name,
+        providerPhone: provider.phone,
+        customerId: req.customerId,
+        customerName: req.customerName,
+        customerLocation: customerLocation,
+        providerStartLocation: providerStartLocation,
+      );
+    }
+
+    return true;
   }
 
   // ── 6. Decline Request ────────────────────────────────────────────────────
@@ -312,6 +381,11 @@ class ServiceRequestService {
         });
       }
     });
+
+    await LiveTrackingService().cancelTrackingSession(
+      requestId: requestId,
+      reason: reason,
+    );
   }
 
   // ── 8. Lifecycle Transitions ──────────────────────────────────────────────
@@ -320,6 +394,8 @@ class ServiceRequestService {
   Future<void> updateJobStatus({
     required String requestId,
     required String status,
+    AppLocationData? providerStartLocation,
+    AppLocationData? providerEndLocation,
   }) async {
     final col = _requestsCollection;
     if (col == null) return;
@@ -329,11 +405,43 @@ class ServiceRequestService {
       'updatedAt': DateTime.now().toIso8601String(),
     };
 
+    if (status == RequestStatus.inProgress) {
+      if (providerStartLocation != null) {
+        updates['providerStartLocation'] = providerStartLocation.toMap();
+      }
+      updates['trackingStatus'] = TrackingState.enRoute;
+    }
+
     if (status == RequestStatus.completed) {
       updates['completedAt'] = DateTime.now().toIso8601String();
+      if (providerEndLocation != null) {
+        updates['providerEndLocation'] = providerEndLocation.toMap();
+        updates['trackingStatus'] = TrackingState.completed;
+        await LiveTrackingService().completeTrackingSession(
+          requestId: requestId,
+          endLocation: providerEndLocation,
+        );
+      }
     }
 
     await col.doc(requestId).update(updates);
+  }
+
+  /// Manually transitions the provider tracking status to [arrived].
+  Future<void> markProviderArrived({
+    required String requestId,
+  }) async {
+    final col = _requestsCollection;
+    if (col != null) {
+      await col.doc(requestId).update({
+        'trackingStatus': TrackingState.arrived,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    }
+    await LiveTrackingService().updateTrackingStatus(
+      requestId: requestId,
+      status: TrackingState.arrived,
+    );
   }
 
   /// Cancels a pending request from the customer's side.
@@ -349,10 +457,15 @@ class ServiceRequestService {
     if (doc.exists && doc.data()?['customerId'] == customerId) {
       await col.doc(requestId).update({
         'status': RequestStatus.cancelled,
+        'trackingStatus': TrackingState.cancelled,
         'cancelledAt': DateTime.now().toIso8601String(),
         'cancellationReason': reason,
         'updatedAt': DateTime.now().toIso8601String(),
       });
+      await LiveTrackingService().cancelTrackingSession(
+        requestId: requestId,
+        reason: reason,
+      );
     }
   }
 
@@ -428,6 +541,7 @@ class ServiceRequestService {
         ServiceCategory.findByNameOrTrade(reqCategoryId);
 
     for (final pCat in providerCategories) {
+      if (pCat.trim().toLowerCase() == 'all') return true;
       final resolved = ServiceCategory.findByNameOrTrade(pCat);
       if (resolved != null && reqCat != null && resolved.id == reqCat.id) {
         return true;
@@ -438,5 +552,18 @@ class ServiceRequestService {
       }
     }
     return false;
+  }
+
+  /// Checks if a service request matches a specific category ID or search filter.
+  bool _matchesSpecificCategory(ServiceRequestModel req, String filterId) {
+    if (filterId.toLowerCase() == 'all') return true;
+    final filterCat = ServiceCategory.findByNameOrTrade(filterId);
+    final reqCat = ServiceCategory.findByNameOrTrade(req.categoryName) ??
+        ServiceCategory.findByNameOrTrade(req.categoryId);
+    if (filterCat != null && reqCat != null && filterCat.id == reqCat.id) {
+      return true;
+    }
+    return req.categoryId.toLowerCase() == filterId.toLowerCase() ||
+        req.categoryName.toLowerCase().contains(filterId.toLowerCase());
   }
 }

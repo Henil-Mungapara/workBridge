@@ -1,0 +1,58 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  body { margin: 0; padding: 10px; background: #e2e8f0; display: flex; justify-content: center; align-items: center; }
+  .phone-frame {
+    width: 380px; height: 500px; background: #ffffff; border-radius: 28px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15); border: 8px solid #1e293b;
+    position: relative; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .status-bar {
+    height: 24px; background: #008f80; color: #fff; font-size: 11px; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: center; padding: 0 16px;
+  }
+  .app-bar {
+    height: 48px; background: #00A896; color: #fff; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .app-title { font-size: 16px; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+  .screen-content { flex: 1; overflow-y: hidden; padding: 12px; background: #f8fafc; }
+  .nav-bar {
+    height: 44px; background: #fff; border-top: 1px solid #e2e8f0; display: flex;
+    justify-content: space-around; align-items: center; font-size: 9px; color: #64748b;
+  }
+  .nav-item.active { color: #00A896; font-weight: bold; }
+</style></head>
+<body>
+<div class="phone-frame">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+  <div class="app-bar">
+    <div class="app-title">WorkBridge Flex</div>
+    <div style="font-size:11px; background:#fff; color:#00A896; padding:2px 6px; border-radius:4px; font-weight:bold;">Active Plan</div>
+  </div>
+  <div class="screen-content">
+    <div style="background:linear-gradient(135deg, #0f172a, #1e3a8a); color:#fff; border-radius:12px; padding:14px; margin-bottom:10px;">
+      <div style="font-size:11px; color:#38bdf8; font-weight:bold; letter-spacing:0.5px;">ANNUAL FLEX MEMBERSHIP</div>
+      <div style="font-size:22px; font-weight:bold; margin:6px 0;">8 Credits Remaining</div>
+      <div style="font-size:10px; opacity:0.85;">10 Credits / Month • 120 Credits / Year</div>
+      <div style="margin-top:10px; background:rgba(255,255,255,0.15); border-radius:6px; height:8px; overflow:hidden;">
+        <div style="width:80%; height:100%; background:#38bdf8;"></div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border-radius:8px; padding:10px; border:1px solid #e2e8f0; margin-bottom:8px;">
+      <div style="font-size:12px; font-weight:bold; color:#1e293b;">Renewal Carryover Rule</div>
+      <div style="font-size:10px; color:#64748b; margin-top:3px; line-height:1.4;">
+        At cycle renewal, <b>50% of unused eligible credits</b> automatically roll over to the next cycle. Never lose your loyalty benefits!
+      </div>
+    </div>
+
+    <div style="background:#fff; border-radius:8px; padding:10px; border:1px solid #e2e8f0;">
+      <div style="font-size:12px; font-weight:bold; color:#1e293b;">WorkBridge Share 🤝</div>
+      <div style="font-size:10px; color:#64748b; margin-top:3px; line-height:1.4;">
+        Transfer or book an eligible service credit for family or friends living at another address.
+      </div>
+      <button style="background:#0284C7; color:#fff; border:none; padding:6px 12px; border-radius:5px; font-size:10px; font-weight:bold; margin-top:8px;">Share Service With Family</button>
+    </div>
+  </div>
+</div>
+</body></html>

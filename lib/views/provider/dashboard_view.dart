@@ -1,9 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../controllers/user_controller.dart';
 import '../../core/constants/app_currency.dart';
 import '../../core/constants/app_routes.dart';
+import '../../core/services/live_tracking_service.dart';
+import '../../core/services/location_service.dart';
 import '../../core/services/service_request_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
@@ -13,6 +16,7 @@ import '../../core/utils/ui_helper.dart';
 import '../../models/service_category_model.dart';
 import '../../models/service_request_model.dart';
 import '../../models/user_model.dart';
+import '../tracking/live_tracking_map_view.dart';
 
 /// Service Provider Dashboard Screen (View).
 /// Features real-time Firestore synchronization, atomic concurrency handling
@@ -29,6 +33,7 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
   int _currentIndex = 0;
   bool _isOnline = true;
   final ServiceRequestService _requestService = ServiceRequestService();
+  String _selectedRequestsFilter = 'all';
 
   Future<void> _handleToggleOnline(bool val, String providerId) async {
     setState(() => _isOnline = val);
@@ -47,16 +52,107 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
   }
 
   Future<void> _handleAcceptRequest(ServiceRequestModel request, UserModel provider) async {
+    // 1. Mandatory Location Permission Enforcement for Provider
+    final hasLocation = await LocationService().checkAndEnforceLocationPermission(
+      context: context,
+      roleTitle: 'Service Provider',
+      actionReason: 'accept this gig, capture your starting location, and provide live customer tracking',
+    );
+
+    if (!hasLocation) {
+      if (mounted) {
+        UiHelper.showSnackBar(
+          context,
+          'Location Required: Please turn on device location to accept service requests.',
+          isError: true,
+        );
+      }
+      return;
+    }
+
+    // 2. Capture Starting Location
+    AppLocationData startLocation;
+    try {
+      startLocation = await LocationService().getCurrentLocation();
+    } catch (_) {
+      startLocation = AppLocationData(
+        latitude: LocationService.defaultLat,
+        longitude: LocationService.defaultLng,
+        address: 'Gondal Bypass, Gondal, Gujarat',
+        city: 'Gondal',
+        timestamp: DateTime.now(),
+      );
+    }
+
     try {
       final success = await _requestService.acceptRequest(
         requestId: request.id,
         provider: provider,
+        providerStartLocation: startLocation,
       );
       if (success && mounted) {
         UiHelper.showSnackBar(
           context,
-          'Accepted service gig for ${request.customerName}! View in My Gigs 🎉',
+          'Accepted service gig for ${request.customerName}! Starting location recorded in Firestore & Realtime DB 🎉',
         );
+
+        final openMap = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            title: const Row(
+              children: [
+                Icon(Icons.navigation_rounded, color: AppColors.accent),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Start Route & Tracking?',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Text(
+                'Job accepted! Customer is at ${request.customerCity ?? "Gondal"} (${request.customerAddress}).\n\n'
+                'Would you like to open the live navigation map now to begin route tracking?',
+                style: const TextStyle(fontSize: 13.5, height: 1.4),
+              ),
+            ),
+            actionsOverflowButtonSpacing: 8,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Later in My Gigs'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Open Live Map'),
+              ),
+            ],
+          ),
+        );
+
+        if (openMap == true && mounted) {
+          LiveTrackingMapView.open(
+            context: context,
+            request: request.copyWith(
+              assignedProviderId: provider.uid,
+              assignedProviderName: provider.name,
+              assignedProviderPhone: provider.phone,
+              providerStartLocation: startLocation.toMap(),
+              trackingStatus: TrackingState.enRoute,
+            ),
+            isProviderView: true,
+          );
+        }
+        if (mounted) {
+          setState(() => _currentIndex = 1);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -68,12 +164,16 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
               children: [
                 Icon(Icons.info_outline_rounded, color: AppColors.error),
                 SizedBox(width: 8),
-                Text('Request Unavailable', style: TextStyle(fontWeight: FontWeight.bold)),
+                Expanded(
+                  child: Text('Request Unavailable', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
               ],
             ),
-            content: Text(
-              e.toString().replaceAll('Exception:', '').trim(),
-              style: const TextStyle(fontSize: 13.5, height: 1.4),
+            content: SingleChildScrollView(
+              child: Text(
+                e.toString().replaceAll('Exception:', '').trim(),
+                style: const TextStyle(fontSize: 13.5, height: 1.4),
+              ),
             ),
             actions: [
               ElevatedButton(
@@ -118,27 +218,32 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
           children: [
             Icon(Icons.warning_amber_rounded, color: AppColors.error),
             SizedBox(width: 8),
-            Text('Cancel Accepted Gig', style: TextStyle(fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Text('Cancel Accepted Gig', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Cancelling this gig will automatically re-open it so other verified Karigars in this category can accept it.',
-              style: TextStyle(fontSize: 13, height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonController,
-              decoration: InputDecoration(
-                labelText: 'Cancellation Reason',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Cancelling this gig will automatically re-open it so other verified Karigars in this category can accept it.',
+                style: TextStyle(fontSize: 13, height: 1.4),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                decoration: InputDecoration(
+                  labelText: 'Cancellation Reason',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
         ),
+        actionsOverflowButtonSpacing: 8,
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -177,6 +282,22 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
     }
   }
 
+  Future<void> _handleMarkArrived(ServiceRequestModel gig) async {
+    try {
+      await _requestService.markProviderArrived(requestId: gig.id);
+      if (mounted) {
+        UiHelper.showSnackBar(
+          context,
+          'Status set to "Arrived"! Client has been notified you are outside 🎉',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        UiHelper.showSnackBar(context, 'Error updating arrival status: $e', isError: true);
+      }
+    }
+  }
+
   Future<void> _handleCompleteGig(ServiceRequestModel gig) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -186,12 +307,18 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
           children: [
             Icon(Icons.task_alt_rounded, color: AppColors.success),
             SizedBox(width: 8),
-            Text('Complete Service Gig', style: TextStyle(fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Text('Complete Service Gig', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
           ],
         ),
-        content: Text(
-          'Confirm completion of work for ${gig.customerName}? This will add ${AppCurrency.symbol}${gig.estimatedAmount.toStringAsFixed(0)} to your total earnings.',
+        content: SingleChildScrollView(
+          child: Text(
+            'Confirm completion of work for ${gig.customerName}? This will add ${AppCurrency.symbol}${gig.estimatedAmount.toStringAsFixed(0)} to your total earnings.',
+            style: const TextStyle(fontSize: 13.5, height: 1.4),
+          ),
         ),
+        actionsOverflowButtonSpacing: 8,
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -211,14 +338,27 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
 
     if (confirm == true && mounted) {
       try {
+        AppLocationData endLocation;
+        try {
+          endLocation = await LocationService().getCurrentLocation();
+        } catch (_) {
+          endLocation = AppLocationData(
+            latitude: LocationService.defaultLat,
+            longitude: LocationService.defaultLng,
+            address: LocationService.defaultAddress,
+            city: LocationService.defaultCity,
+            timestamp: DateTime.now(),
+          );
+        }
         await _requestService.updateJobStatus(
           requestId: gig.id,
           status: RequestStatus.completed,
+          providerEndLocation: endLocation,
         );
         if (mounted) {
           UiHelper.showSnackBar(
             context,
-            'Gig completed! ${AppCurrency.symbol}${gig.estimatedAmount.toStringAsFixed(0)} credited to earnings 🎉',
+            'Gig completed! Final location recorded at ${endLocation.city}. ${AppCurrency.symbol}${gig.estimatedAmount.toStringAsFixed(0)} credited to earnings 🎉',
           );
         }
       } catch (e) {
@@ -231,16 +371,52 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
 
   Future<void> _handleStartJob(ServiceRequestModel gig) async {
     try {
+      final hasLocation = await LocationService().checkAndEnforceLocationPermission(
+        context: context,
+        roleTitle: 'Service Provider',
+        actionReason: 'start your trip, enable live customer tracking, and update arrival status',
+      );
+      if (!hasLocation) return;
+
+      AppLocationData startLoc;
+      if (gig.providerStartLocation == null) {
+        try {
+          startLoc = await LocationService().getCurrentLocation();
+        } catch (_) {
+          startLoc = AppLocationData(
+            latitude: LocationService.defaultLat,
+            longitude: LocationService.defaultLng,
+            address: LocationService.defaultAddress,
+            city: LocationService.defaultCity,
+            timestamp: DateTime.now(),
+          );
+        }
+      } else {
+        startLoc = AppLocationData.fromMap(gig.providerStartLocation!);
+      }
+
       await _requestService.updateJobStatus(
         requestId: gig.id,
         status: RequestStatus.inProgress,
+        providerStartLocation: gig.providerStartLocation == null ? startLoc : null,
       );
+
+      await LiveTrackingService().updateProviderLocation(
+        requestId: gig.id,
+        newLocation: startLoc,
+        status: TrackingState.enRoute,
+      );
+
       if (mounted) {
-        UiHelper.showSnackBar(context, 'Job marked as In Progress');
+        UiHelper.showSnackBar(
+          context,
+          'Trip started! Status set to "I Am Coming". Customer is now live-tracking you.',
+          isError: false,
+        );
       }
     } catch (e) {
       if (mounted) {
-        UiHelper.showSnackBar(context, 'Error: $e', isError: true);
+        UiHelper.showSnackBar(context, 'Error starting trip: $e', isError: true);
       }
     }
   }
@@ -249,6 +425,16 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
   Widget build(BuildContext context) {
     final userController = context.watch<UserController>();
     final user = userController.user;
+    String effectiveUid = user.uid;
+    if (effectiveUid.isEmpty) {
+      try {
+        effectiveUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      } catch (_) {}
+    }
+    final effectiveUser = (user.uid.isEmpty && effectiveUid.isNotEmpty)
+        ? user.copyWith(uid: effectiveUid)
+        : user;
+
     final String displayName =
         userController.userName.isNotEmpty ? userController.userName : 'Service Provider';
     final String initialLetter =
@@ -344,7 +530,7 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
                 Switch(
                   value: _isOnline,
                   activeTrackColor: AppColors.success,
-                  onChanged: (val) => _handleToggleOnline(val, user.uid),
+                  onChanged: (val) => _handleToggleOnline(val, effectiveUser.uid),
                 ),
               ],
             ),
@@ -360,10 +546,10 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
       ),
       body: SafeArea(
         child: _currentIndex == 1
-            ? _buildActiveGigsTab(user)
+            ? _buildActiveGigsTab(effectiveUser)
             : _currentIndex == 2
-                ? _buildRequestsTab(user, rawAssigned)
-                : _buildDashboardHome(user, displayName, assignedCategories, rawAssigned),
+                ? _buildRequestsTab(effectiveUser, rawAssigned)
+                : _buildDashboardHome(effectiveUser, displayName, assignedCategories, rawAssigned),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -519,6 +705,62 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
 
                   return Column(
                     children: [
+                      if (activeJobs.isNotEmpty) ...[
+                        InkWell(
+                          onTap: () => setState(() => _currentIndex = 1),
+                          borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                          child: Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 14),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.accent.withValues(alpha: 0.15),
+                                  AppColors.accent.withValues(alpha: 0.05),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(AppDimensions.radiusMd),
+                              border: Border.all(color: AppColors.accent.withValues(alpha: 0.5)),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.handyman_rounded, color: Colors.white, size: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Active Job In Progress',
+                                        style: AppTextStyles.labelLarge.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${activeJobs.length} active service ongoing. Tap to manage & track live.',
+                                        style: AppTextStyles.caption.copyWith(
+                                          color: AppColors.secondaryText,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.accent),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                       // KPI Metric Cards - Row 1
                       Row(
                         children: [
@@ -859,6 +1101,18 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.secondaryText),
                   ),
+                  const SizedBox(height: 18),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.receipt_long_rounded, size: 18),
+                    label: const Text('Browse Incoming Requests'),
+                    onPressed: () => setState(() => _currentIndex = 2),
+                  ),
                 ],
               ),
             ),
@@ -950,10 +1204,149 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
               style: AppTextStyles.bodySmall.copyWith(color: AppColors.mainText),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
 
-          // Actions Row
-          Row(
+          // Start & End Location Trail Display
+          if (gig.providerStartLocation != null || gig.providerEndLocation != null) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (gig.providerStartLocation != null)
+                    Row(
+                      children: [
+                        const Icon(Icons.trip_origin_rounded, size: 14, color: AppColors.accent),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Start Location: ${gig.providerStartLocation!['address'] ?? gig.providerStartLocation!['city'] ?? "Recorded"}',
+                            style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.mainText),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  if (gig.providerEndLocation != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.sports_score_rounded, size: 14, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'End Location: ${gig.providerEndLocation!['address'] ?? gig.providerEndLocation!['city'] ?? "Recorded"}',
+                            style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.primary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // Live Route & Map Navigation Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: const Icon(Icons.navigation_rounded, size: 16, color: AppColors.accent),
+              label: const Text(
+                'Live Route & Tracking Map',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              onPressed: () {
+                LiveTrackingMapView.open(
+                  context: context,
+                  request: gig,
+                  isProviderView: true,
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Dynamic Tracking Status Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: gig.trackingStatus == TrackingState.arrived
+                  ? AppColors.success.withValues(alpha: 0.15)
+                  : gig.trackingStatus == TrackingState.enRoute
+                      ? AppColors.warning.withValues(alpha: 0.15)
+                      : AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: gig.trackingStatus == TrackingState.arrived
+                    ? AppColors.success.withValues(alpha: 0.4)
+                    : gig.trackingStatus == TrackingState.enRoute
+                        ? AppColors.warning.withValues(alpha: 0.4)
+                        : AppColors.primary.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  gig.trackingStatus == TrackingState.arrived
+                      ? Icons.pin_drop_rounded
+                      : gig.trackingStatus == TrackingState.enRoute
+                          ? Icons.navigation_rounded
+                          : Icons.check_circle_outline_rounded,
+                  size: 13,
+                  color: gig.trackingStatus == TrackingState.arrived
+                      ? AppColors.success
+                      : gig.trackingStatus == TrackingState.enRoute
+                          ? AppColors.warning
+                          : AppColors.primary,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  gig.trackingStatus == TrackingState.arrived
+                      ? 'Status: Arrived at Client Location'
+                      : gig.trackingStatus == TrackingState.enRoute
+                          ? 'Status: En Route (I Am Coming)'
+                          : 'Status: Accepted (Ready to Start)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: gig.trackingStatus == TrackingState.arrived
+                        ? AppColors.success
+                        : gig.trackingStatus == TrackingState.enRoute
+                            ? AppColors.warning
+                            : AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Actions Row with Wrap to prevent screen overflow
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               // Cancel Gig (re-opens for other providers!)
               OutlinedButton(
@@ -965,18 +1358,28 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
                 onPressed: () => _handleCancelAcceptedGig(gig, providerId),
                 child: const Text('Cancel Gig'),
               ),
-              const Spacer(),
               if (!isInProgress)
-                ElevatedButton(
+                ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0284C7),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () => _handleStartJob(gig),
-                  child: const Text('Start Work'),
+                  icon: const Icon(Icons.directions_run_rounded, size: 16),
+                  label: const Text('I Am Coming'),
                 )
-              else
+              else if (gig.trackingStatus == TrackingState.enRoute) ...[
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD97706),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => _handleMarkArrived(gig),
+                  icon: const Icon(Icons.pin_drop_rounded, size: 16),
+                  label: const Text('I Have Arrived'),
+                ),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.success,
@@ -984,9 +1387,21 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () => _handleCompleteGig(gig),
-                  icon: const Icon(Icons.check_rounded, size: 16),
-                  label: const Text('Complete Gig'),
+                  icon: const Icon(Icons.check_circle_rounded, size: 16),
+                  label: const Text('Done'),
                 ),
+              ] else ...[
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => _handleCompleteGig(gig),
+                  icon: const Icon(Icons.check_circle_rounded, size: 16),
+                  label: const Text('Done (Complete Gig)'),
+                ),
+              ],
             ],
           ),
         ],
@@ -997,7 +1412,172 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
   // ── Tab 2: Incoming Requests Full Tab ──────────────────────────────────────
 
   Widget _buildRequestsTab(UserModel user, List<String> rawAssigned) {
-    return _buildLiveIncomingRequestsStream(user, rawAssigned, isFullTab: true);
+    final bool isAll = _selectedRequestsFilter == 'all';
+    final bool isSpecialty = _selectedRequestsFilter == 'specialty';
+
+    return Column(
+      children: [
+        // Tab Header & Category Filter Bar
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: context.widthPct(0.045),
+            vertical: context.heightPct(0.015),
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.card,
+            border: Border(bottom: BorderSide(color: AppColors.border, width: 1)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Customer Requests',
+                        style: AppTextStyles.titleMedium.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                          fontSize: context.respFont(16),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Browse and accept real-time service requests',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.secondaryText,
+                          fontSize: context.respFont(11),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _isOnline
+                          ? AppColors.success.withValues(alpha: 0.12)
+                          : AppColors.error.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircleAvatar(
+                          radius: 3.5,
+                          backgroundColor: _isOnline ? AppColors.success : AppColors.error,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _isOnline ? 'Online' : 'Offline',
+                          style: TextStyle(
+                            fontSize: context.respFont(10.5),
+                            fontWeight: FontWeight.w700,
+                            color: _isOnline ? AppColors.success : AppColors.error,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildRequestsFilterChip(
+                      label: 'All Requests',
+                      icon: Icons.all_inclusive_rounded,
+                      isSelected: isAll,
+                      onTap: () => setState(() => _selectedRequestsFilter = 'all'),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildRequestsFilterChip(
+                      label: 'My Specialties',
+                      icon: Icons.star_rounded,
+                      isSelected: isSpecialty,
+                      onTap: () => setState(() => _selectedRequestsFilter = 'specialty'),
+                    ),
+                    ...ServiceCategory.all8Categories.map((cat) {
+                      final isSelected = _selectedRequestsFilter == cat.id;
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: _buildRequestsFilterChip(
+                          label: cat.name,
+                          icon: cat.icon,
+                          isSelected: isSelected,
+                          onTap: () => setState(() => _selectedRequestsFilter = cat.id),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Live Requests Feed
+        Expanded(
+          child: _buildLiveIncomingRequestsStream(
+            user,
+            rawAssigned,
+            isFullTab: true,
+            showAllOpenRequests: isAll,
+            filterCategoryId: (!isAll && !isSpecialty) ? _selectedRequestsFilter : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRequestsFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    IconData? icon,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.accent : AppColors.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppColors.accent : AppColors.border,
+            width: 1.2,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 13,
+                color: isSelected ? Colors.white : AppColors.secondaryText,
+              ),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? Colors.white : AppColors.mainText,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildLiveIncomingRequestsStream(
@@ -1005,6 +1585,8 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
     List<String> rawAssigned, {
     int? limit,
     bool isFullTab = false,
+    bool showAllOpenRequests = false,
+    String? filterCategoryId,
   }) {
     if (!_isOnline) {
       return Container(
@@ -1034,11 +1616,15 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
       );
     }
 
+    final bool effectiveShowAll = showAllOpenRequests || (!isFullTab && user.categories.isEmpty);
+
     return StreamBuilder<List<ServiceRequestModel>>(
       stream: _requestService.streamProviderIncomingRequests(
         providerId: user.uid,
         providerCategories: rawAssigned,
         isOnline: _isOnline,
+        showAllOpenRequests: effectiveShowAll,
+        filterCategoryId: filterCategoryId,
       ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1073,11 +1659,25 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
                     color: AppColors.primary,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  'No pending requests right now. Keep yourself online for new incoming gigs.',
+                  isFullTab && !effectiveShowAll
+                      ? 'No pending requests in this filter. Switch to "All Requests" to see all open gigs.'
+                      : 'No pending requests right now. Keep yourself online for new incoming gigs.',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.caption.copyWith(color: AppColors.secondaryText),
                 ),
+                if (isFullTab && !effectiveShowAll) ...[
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text('Show All Requests'),
+                    onPressed: () {
+                      setState(() => _selectedRequestsFilter = 'all');
+                    },
+                  ),
+                ],
               ],
             ),
           );
@@ -1149,7 +1749,7 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
                 decoration: BoxDecoration(
                   color: item.isBroadcast
                       ? AppColors.accent.withValues(alpha: 0.12)
-                      : Colors.purple.withValues(alpha: 0.12),
+                      : AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -1157,37 +1757,130 @@ class _ProviderDashboardViewState extends State<ProviderDashboardView> {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: item.isBroadcast ? AppColors.accent : Colors.purple,
+                    color: item.isBroadcast ? AppColors.accent : AppColors.primary,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.person_pin_rounded, size: 14, color: AppColors.secondaryText),
-              const SizedBox(width: 4),
-              Text(
-                item.customerName,
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.secondaryText,
-                  fontWeight: FontWeight.w600,
+              if (item.categoryName.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    item.categoryName,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          UiHelper.verticalSpace(context, 0.006),
-          Row(
-            children: [
-              Icon(Icons.location_on_outlined, size: 14, color: AppColors.secondaryText),
+                const SizedBox(width: 8),
+              ],
+              Icon(Icons.person_pin_rounded, size: 14, color: AppColors.secondaryText),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  item.customerAddress,
-                  style: AppTextStyles.caption.copyWith(color: AppColors.secondaryText),
-                  maxLines: 1,
+                  item.customerName,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.secondaryText,
+                    fontWeight: FontWeight.w600,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
+          UiHelper.verticalSpace(context, 0.008),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.fmd_good_rounded, size: 18, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Location: ${item.customerCity != null && item.customerCity!.isNotEmpty ? item.customerCity! : "Gondal"}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      Text(
+                        item.customerAddress,
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.secondaryText,
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                InkWell(
+                  onTap: () {
+                    LiveTrackingMapView.open(
+                      context: context,
+                      request: item,
+                      isProviderView: true,
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.map_rounded, size: 14, color: AppColors.accentDark),
+                        SizedBox(width: 4),
+                        Text(
+                          'Map',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.accentDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (item.scheduledDate.isNotEmpty || item.scheduledTime.isNotEmpty) ...[
+            UiHelper.verticalSpace(context, 0.006),
+            Row(
+              children: [
+                const Icon(Icons.schedule_rounded, size: 13, color: AppColors.secondaryText),
+                const SizedBox(width: 4),
+                Text(
+                  'Scheduled: ${item.scheduledDate} • ${item.scheduledTime}',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.secondaryText,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (item.description.isNotEmpty) ...[
             UiHelper.verticalSpace(context, 0.006),
             Text(

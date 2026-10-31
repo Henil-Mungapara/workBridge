@@ -1,0 +1,54 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  body { margin: 0; padding: 10px; background: #e2e8f0; display: flex; justify-content: center; align-items: center; }
+  .phone-frame {
+    width: 380px; height: 500px; background: #ffffff; border-radius: 28px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15); border: 8px solid #1e293b;
+    position: relative; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .status-bar {
+    height: 24px; background: #008f80; color: #fff; font-size: 11px; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: center; padding: 0 16px;
+  }
+  .app-bar {
+    height: 48px; background: #00A896; color: #fff; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .app-title { font-size: 16px; font-weight: bold; display: flex; align-items: center; gap: 6px; }
+  .screen-content { flex: 1; overflow-y: hidden; padding: 12px; background: #f8fafc; }
+  .nav-bar {
+    height: 44px; background: #fff; border-top: 1px solid #e2e8f0; display: flex;
+    justify-content: space-around; align-items: center; font-size: 9px; color: #64748b;
+  }
+  .nav-item.active { color: #00A896; font-weight: bold; }
+</style></head>
+<body>
+<div class="phone-frame">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+  <div class="app-bar" style="background:#dc2626;">
+    <div class="app-title">🛡️ WorkBridge Safe</div>
+    <div style="font-size:11px;">Active Service</div>
+  </div>
+  <div class="screen-content" style="text-align:center; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:12px;">
+    <div style="font-size:14px; font-weight:bold; color:#991b1b;">In-Home Emergency Safety Protocol</div>
+    <div style="font-size:10.5px; color:#64748b; padding:0 15px;">
+      Press and hold the button below for 3 seconds if you feel unsafe. It will immediately trigger emergency calling and notify your trusted contacts.
+    </div>
+
+    <!-- SOS Button -->
+    <div style="width:110px; height:110px; border-radius:50%; background:#ef4444; border:6px solid #fecaca; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; box-shadow:0 8px 20px rgba(239,68,68,0.4); cursor:pointer;">
+      <div style="font-size:26px;">⚠️</div>
+      <div style="font-size:14px; font-weight:bold; margin-top:2px;">HOLD SOS</div>
+      <div style="font-size:8px;">3 SECONDS</div>
+    </div>
+
+    <div style="background:#fff; border-radius:8px; padding:10px; border:1px solid #fecaca; width:100%; text-align:left; font-size:10px; line-height:1.4;">
+      <div style="font-weight:bold; color:#dc2626; margin-bottom:3px;">Automated Safety Actions:</div>
+      <div>• Connects call to Emergency Police (112)</div>
+      <div>• Sends live GPS &amp; Karigar details to Trusted Contact (+91 99000 11222)</div>
+      <div>• Alerts 24/7 WorkBridge Emergency Safety Operations Center</div>
+      <div>• Logs permanent immutable incident record in Firestore</div>
+    </div>
+  </div>
+</div>
+</body></html>

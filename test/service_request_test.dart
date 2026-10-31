@@ -1,4 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:workbridge/core/services/live_tracking_service.dart';
+import 'package:workbridge/core/services/location_service.dart';
+import 'package:workbridge/core/services/service_request_service.dart';
 import 'package:workbridge/models/service_request_model.dart';
 
 void main() {
@@ -159,5 +162,187 @@ void main() {
       expect(deserialized.assignedProviderId, 'prov_101');
       expect(deserialized.status, RequestStatus.inProgress);
     });
+
+    test('Customer coordinates and city (e.g. Gondal) are faithfully serialized and deserialized', () {
+      final reqWithLocation = ServiceRequestModel(
+        id: 'req_loc_001',
+        customerId: 'cust_gondal_01',
+        customerName: 'Jayesh Patel',
+        customerPhone: '+91 94280 12345',
+        customerAddress: 'Station Road, Near Bus Stand, Gondal',
+        customerLatitude: 21.9619,
+        customerLongitude: 70.7923,
+        customerCity: 'Gondal',
+        categoryId: 'plumbing',
+        categoryName: 'Plumbing',
+        serviceTitle: 'Main Pipe Repair',
+        description: 'Urgent leak near water meter',
+        estimatedAmount: 800.0,
+        scheduledDate: '2026-09-28',
+        scheduledTime: '10:00 AM',
+        createdAt: DateTime.now().toIso8601String(),
+      );
+
+      final map = reqWithLocation.toMap();
+      expect(map['customerLatitude'], 21.9619);
+      expect(map['customerLongitude'], 70.7923);
+      expect(map['customerCity'], 'Gondal');
+
+      final deserialized = ServiceRequestModel.fromMap(map, reqWithLocation.id);
+      expect(deserialized.customerLatitude, 21.9619);
+      expect(deserialized.customerLongitude, 70.7923);
+      expect(deserialized.customerCity, 'Gondal');
+    });
+
+    test('Provider starting and ending locations are recorded and stored accurately', () {
+      final startLoc = {
+        'latitude': 21.9650,
+        'longitude': 70.7950,
+        'address': 'Gondal Bypass, Gondal, Gujarat',
+        'city': 'Gondal',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      final endLoc = {
+        'latitude': 21.9619,
+        'longitude': 70.7923,
+        'address': 'Station Road, Gondal, Gujarat',
+        'city': 'Gondal',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      final acceptedReq = ServiceRequestModel(
+        id: 'req_loc_002',
+        customerId: 'cust_gondal_01',
+        customerName: 'Jayesh Patel',
+        customerPhone: '+91 94280 12345',
+        customerAddress: 'Station Road, Gondal',
+        customerLatitude: 21.9619,
+        customerLongitude: 70.7923,
+        customerCity: 'Gondal',
+        categoryId: 'electrical',
+        categoryName: 'Electrical',
+        serviceTitle: 'Switchboard Repair',
+        description: 'Sparking issue',
+        estimatedAmount: 500.0,
+        scheduledDate: '2026-09-28',
+        scheduledTime: '02:00 PM',
+        status: RequestStatus.completed,
+        assignedProviderId: 'prov_gondal_01',
+        assignedProviderName: 'Ramesh Karigar',
+        providerStartLocation: startLoc,
+        providerEndLocation: endLoc,
+        trackingStatus: 'completed',
+        createdAt: DateTime.now().toIso8601String(),
+      );
+
+      final map = acceptedReq.toMap();
+      expect(map['providerStartLocation'], isNotNull);
+      expect(map['providerStartLocation']['city'], 'Gondal');
+      expect(map['providerEndLocation'], isNotNull);
+      expect(map['providerEndLocation']['latitude'], 21.9619);
+      expect(map['trackingStatus'], 'completed');
+
+      final deserialized = ServiceRequestModel.fromMap(map, acceptedReq.id);
+      expect(deserialized.providerStartLocation?['city'], 'Gondal');
+      expect(deserialized.providerEndLocation?['latitude'], 21.9619);
+      expect(deserialized.trackingStatus, 'completed');
+    });
+
+    test('LiveTrackingData serializes correctly with Realtime Database tree schema', () {
+      final now = DateTime.now();
+      final customerLoc = AppLocationData(
+        latitude: 21.9619,
+        longitude: 70.7923,
+        address: 'Station Road, Gondal, Gujarat',
+        city: 'Gondal',
+        timestamp: now,
+      );
+
+      final providerLoc = AppLocationData(
+        latitude: 21.9680,
+        longitude: 70.7980,
+        address: 'Gondal Main Chowk, Gondal',
+        city: 'Gondal',
+        timestamp: now,
+      );
+
+      final trackingData = LiveTrackingData(
+        requestId: 'req_loc_003',
+        providerId: 'prov_001',
+        providerName: 'Kishore Mistri',
+        providerPhone: '+91 98765 00000',
+        customerId: 'cust_001',
+        customerName: 'Jayesh Patel',
+        customerLocation: customerLoc,
+        providerLocation: providerLoc,
+        status: TrackingState.enRoute,
+        distanceMeters: 850.0,
+        distanceDisplay: '850 m',
+        etaDisplay: '3 mins',
+        updatedAt: DateTime.now(),
+      );
+
+      final rtdbMap = trackingData.toMap();
+      expect(rtdbMap['requestId'], 'req_loc_003');
+      expect(rtdbMap['status'], TrackingState.enRoute);
+      expect(rtdbMap['customerLocation']['city'], 'Gondal');
+      expect(rtdbMap['providerLocation']['latitude'], 21.9680);
+      expect(rtdbMap['distanceDisplay'], '850 m');
+      expect(rtdbMap['etaDisplay'], '3 mins');
+
+      final restored = LiveTrackingData.fromMap(rtdbMap);
+      expect(restored.requestId, 'req_loc_003');
+      expect(restored.status, TrackingState.enRoute);
+      expect(restored.customerLocation.city, 'Gondal');
+      expect(restored.providerLocation.latitude, 21.9680);
+    });
+
+    test('ServiceRequestService streamProviderIncomingRequests yields empty list when offline', () async {
+      final service = ServiceRequestService();
+      final stream = service.streamProviderIncomingRequests(
+        providerId: 'prov_test_01',
+        providerCategories: ['Electrical'],
+        isOnline: false,
+        showAllOpenRequests: true,
+      );
+      final list = await stream.first;
+      expect(list, isEmpty);
+    });
+
+    test('TrackingState.arrived and LiveTrackingData transitions status correctly', () {
+      final tracking = LiveTrackingData(
+        requestId: 'req_loc_004',
+        providerId: 'prov_test',
+        providerName: 'Test Specialist',
+        providerPhone: '+91 99999 88888',
+        customerId: 'cust_test',
+        customerName: 'Customer Name',
+        customerLocation: AppLocationData(
+          latitude: 21.9619,
+          longitude: 70.7923,
+          address: 'Gondal Address',
+          city: 'Gondal',
+          timestamp: DateTime(2026, 9, 28),
+        ),
+        providerLocation: AppLocationData(
+          latitude: 21.9619,
+          longitude: 70.7923,
+          address: 'Arrived at Gate',
+          city: 'Gondal',
+          timestamp: DateTime(2026, 9, 28),
+        ),
+        status: TrackingState.arrived,
+        distanceMeters: 0,
+        distanceDisplay: '0 m',
+        etaDisplay: 'Arrived',
+        updatedAt: DateTime.now(),
+      );
+
+      expect(tracking.status, TrackingState.arrived);
+      expect(tracking.etaDisplay, 'Arrived');
+      expect(tracking.toMap()['status'], 'arrived');
+    });
   });
 }
+

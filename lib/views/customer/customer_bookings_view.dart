@@ -10,6 +10,7 @@ import '../../core/utils/media_query_helper.dart';
 import '../../core/utils/ui_helper.dart';
 import '../../models/service_category_model.dart';
 import '../../models/service_request_model.dart';
+import '../tracking/live_tracking_map_view.dart';
 
 /// Customer Bookings Screen (View).
 /// Displays live real-time booking updates, assigned Karigar details,
@@ -41,6 +42,7 @@ class _CustomerBookingsViewState extends State<CustomerBookingsView>
   }
 
   Future<void> _handleCancelBooking(ServiceRequestModel request) async {
+    final isWorking = request.isAccepted || request.isInProgress;
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -49,12 +51,20 @@ class _CustomerBookingsViewState extends State<CustomerBookingsView>
           children: [
             Icon(Icons.warning_amber_rounded, color: AppColors.error),
             SizedBox(width: 8),
-            Text('Cancel Request', style: TextStyle(fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Text('Cancel Service Booking', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
           ],
         ),
-        content: Text(
-          'Are you sure you want to cancel your service request for "${request.serviceTitle}"?',
+        content: SingleChildScrollView(
+          child: Text(
+            isWorking
+                ? 'Are you sure you want to cancel your ongoing service booking for "${request.serviceTitle}"? The assigned specialist will be notified and live tracking will be closed.'
+                : 'Are you sure you want to cancel your service request for "${request.serviceTitle}"?',
+            style: const TextStyle(fontSize: 13.5, height: 1.4),
+          ),
         ),
+        actionsOverflowButtonSpacing: 8,
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -315,7 +325,7 @@ class _CustomerBookingsViewState extends State<CustomerBookingsView>
                           decoration: BoxDecoration(
                             color: request.isBroadcast
                                 ? AppColors.accent.withValues(alpha: 0.12)
-                                : Colors.purple.withValues(alpha: 0.12),
+                                : AppColors.primary.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -323,7 +333,7 @@ class _CustomerBookingsViewState extends State<CustomerBookingsView>
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: request.isBroadcast ? AppColors.accent : Colors.purple,
+                              color: request.isBroadcast ? AppColors.accent : AppColors.primary,
                             ),
                           ),
                         ),
@@ -484,17 +494,98 @@ class _CustomerBookingsViewState extends State<CustomerBookingsView>
             ),
           ],
 
-          // Action: Cancel if pending
-          if (request.isPending) ...[
+          // Provider Start & End Locations Display for Customer
+          if (request.providerStartLocation != null || request.providerEndLocation != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (request.providerStartLocation != null)
+                    Row(
+                      children: [
+                        const Icon(Icons.trip_origin_rounded, size: 14, color: AppColors.accent),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Specialist Started From: ${request.providerStartLocation!['address'] ?? request.providerStartLocation!['city'] ?? "Recorded"}',
+                            style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.mainText),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  if (request.providerEndLocation != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.sports_score_rounded, size: 14, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Specialist Completed At: ${request.providerEndLocation!['address'] ?? request.providerEndLocation!['city'] ?? "Recorded"}',
+                            style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.primary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+
+          // Action: Live Tracking if Accepted or In Progress
+          if (request.isAccepted || request.isInProgress) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                icon: const Icon(Icons.map_rounded, size: 18, color: AppColors.accent),
+                label: const Text(
+                  'Live Track Specialist on Map',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                onPressed: () {
+                  LiveTrackingMapView.open(
+                    context: context,
+                    request: request,
+                    isProviderView: false,
+                  );
+                },
+              ),
+            ),
+          ],
+
+          // Action: Cancel if pending, accepted, or in progress
+          if (request.isPending || request.isAccepted || request.isInProgress) ...[
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 onPressed: () => _handleCancelBooking(request),
                 icon: const Icon(Icons.cancel_outlined, size: 15, color: AppColors.error),
-                label: const Text(
-                  'Cancel Booking',
-                  style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w700),
+                label: Text(
+                  request.isPending ? 'Cancel Booking' : 'Cancel Service',
+                  style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.w700),
                 ),
               ),
             ),
